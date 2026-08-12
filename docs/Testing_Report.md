@@ -35,7 +35,7 @@ date: "12 August 2026"
 | Defects raised | **7** |
 | Defects closed | **2** |
 | Defects open and tracked as technical debt | **5** |
-| Requirements with at least one verifying test | 58 of 61 (95%) |
+| Requirements with at least one executed test | 81 of 89 (91%) |
 
 **Overall verdict:** the system passes all functional testing for its stated demonstrator purpose, and **fails five security probes**. The security failures are not surprises — they are the executable proof of the CRITICAL items already recorded in the Technical Debt Plan (TD-01, TD-02, TD-03, TD-13). They are reported here with full reproduction steps precisely because a testing report that reports only passes is not a testing report.
 

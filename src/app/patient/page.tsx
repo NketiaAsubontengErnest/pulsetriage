@@ -40,6 +40,7 @@ function PatientDashboardContent() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [triageHistory, setTriageHistory] = useState<TriageAssessment[]>([]);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

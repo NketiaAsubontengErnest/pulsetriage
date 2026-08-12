@@ -359,10 +359,10 @@ The order below is not arbitrary; it follows four rules:
 
 | Release | Window | Items repaid | Effort (h) | Exit criterion |
 | :--- | :--- | :--- | :---: | :--- |
-| **v1.1 — Security Hardening** | Week 1 | TD-02, TD-13 (day 1 hotfix); TD-01 + TD-03 (days 2–5); TD-10 labelling | 48 | All four Critical items closed. Cross-role API probe returns 403 for every unauthorised combination. Repository secret scan clean. Independent security review sign-off. |
+| **v1.1 — Security Hardening** | Week 1 | TD-02, TD-13 (day 1 hotfix); TD-01 + TD-03 (days 2–5); TD-10 relabelling | 48 | All four Critical items closed. Cross-role API probe returns 403 for every unauthorised combination. Repository secret scan clean. Independent security review sign-off. |
 | **v1.2 — Clinical Governance** | Month 1 | TD-04, TD-06, TD-08, TD-05 | 60 | Triage rules editable and versioned without redeployment. Concurrency test passes. PHI read access fully audited. Account lifecycle complete. |
 | **v1.3 — Experience & Access** | Month 2 | TD-07, TD-09, TD-14 | 38 | WCAG 2.1 AA verified by automated and manual audit. Reschedule/cancel live. Currency migrated to exact representation. |
-| **v2.0 — Production Readiness** | Months 2–3 | TD-11, TD-12, TD-10, TD-15 | 101 | Real payment settlement with webhook reconciliation. Real SMS/e-mail delivery with retry. Real two-way consultation media. LLM data-processing agreement executed. |
+| **v2.0 — Production Readiness** | Months 2–3 | TD-11, TD-12, TD-10 (remaining 35 h), TD-15 | 100 | Real payment settlement with webhook reconciliation. Real SMS/e-mail delivery with retry. Real two-way consultation media. LLM data-processing agreement executed. |
 | | | **TOTAL** | **246** | |
 
 ## 3.3 Repayment Burn-Down

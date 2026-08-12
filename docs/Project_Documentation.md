@@ -31,7 +31,7 @@ This consolidated document is self-contained, but four companion documents conta
 
 | Document | Contents |
 | :--- | :--- |
-| `SRS.docx` | Complete IEEE 830-1998 Software Requirements Specification — 61 identified requirements with priorities, verification status and a full traceability matrix. |
+| `SRS.docx` | Complete IEEE 830-1998 Software Requirements Specification — 71 functional and 18 non-functional requirements (plus 16 external-interface requirements), each with a MoSCoW priority, a verification status and a full traceability matrix. |
 | `Testing_Report.docx` | 68 test cases, executed results, performance measurements, security probe evidence and the defect log. |
 | `Technical_Debt_Plan.docx` | The 15-item technical debt register with the Debt → Cause → Impact → Priority → Resolution analysis and a costed repayment roadmap. |
 | `User_Manual.docx` | End-user operating instructions for all three roles. |
@@ -106,7 +106,7 @@ PulseTriage explicitly addresses **non-emergency outpatient triage and schedulin
 
 | # | Objective | Achieved | Evidence |
 | :--- | :--- | :---: | :--- |
-| **O1** | Elicit, analyse, document and prioritise a complete requirement set before writing any implementation code. | Yes | `SRS.docx` — 61 requirements, MoSCoW prioritised, scope frozen at hour 6 |
+| **O1** | Elicit, analyse, document and prioritise a complete requirement set before writing any implementation code. | Yes | `SRS.docx` — 89 functional and non-functional requirements, MoSCoW prioritised, scope frozen at hour 6 |
 | **O2** | Produce a defensible effort estimate using a recognised technique, and use it to make an explicit, recorded scope decision. | Yes | §7 — Use Case Points, cross-checked with COCOMO II |
 | **O3** | Build a deterministic, rules-as-data triage engine that scores 0–100, classifies into four tiers, and short-circuits on safety red flags. | Yes | `src/lib/triage-engine.ts`; 12 dedicated unit tests |
 | **O4** | Implement role-based portals for Patient, Doctor and Administrator over a persistent relational datastore. | Yes | 3 portals, 9 entities, 18 API endpoints |
@@ -174,12 +174,15 @@ Each observed failure was traced to the requirements that address it, so that no
 
 Prioritisation was performed **before** implementation and was the mechanism by which the effort estimate in §7 was converted into a scope decision.
 
+Counts below cover the 71 functional and 18 non-functional requirements. The 16 external-interface requirements (UI, API, COM) are prioritised in the SRS but excluded from this table to avoid double-counting.
+
 | Priority | Definition applied | Count | Delivered |
 | :--- | :--- | :---: | :---: |
-| **Must have** | Without it the system does not solve the stated problem, or it is unsafe | 38 | 34 |
-| **Should have** | Important but the system remains useful without it | 12 | 5 |
-| **Could have** | Desirable; included only if capacity remains | 8 | 6 |
+| **Must have** | Without it the system does not solve the stated problem, or it is unsafe | 58 | 54 |
+| **Should have** | Important but the system remains useful without it | 17 | 8 |
+| **Could have** | Desirable; included only if capacity remains | 11 | 9 |
 | **Won't have (this release)** | Explicitly excluded, with rationale recorded | 3 | 0 |
+| | | **89** | **71** |
 
 The four undelivered Must-haves are FR-3.8 (slot concurrency control) and FR-4.5–FR-4.7 (server-side authorisation). Each is recorded as a Critical or High technical debt item with an assigned repayment milestone, rather than being quietly re-classified as a lower priority — which is the failure mode this documentation is designed to avoid.
 
@@ -797,7 +800,8 @@ Full detail is in `Technical_Debt_Plan.docx`. Summary:
 | **v1.1 Security Hardening** | Week 1 | TD-02, TD-13 (day 1); TD-01 + TD-03 (days 2–5); TD-10 labelling | 48 h | All Critical items closed; cross-role probe returns 403 for every unauthorised combination; secret scan clean |
 | **v1.2 Clinical Governance** | Month 1 | TD-04, TD-06, TD-08, TD-05 | 60 h | Rules editable and versioned without redeployment; concurrency test passes; PHI reads audited |
 | **v1.3 Experience & Access** | Month 2 | TD-07, TD-09, TD-14 | 38 h | WCAG 2.1 AA verified; reschedule/cancel live; currency migrated before real money exists |
-| **v2.0 Production Readiness** | Months 2–3 | TD-11, TD-12, TD-10, TD-15 | 101 h | Real settlement with webhook reconciliation; real SMS/e-mail; real consultation media; data-processing agreement executed |
+| **v2.0 Production Readiness** | Months 2–3 | TD-11, TD-12, TD-10 (remaining), TD-15 | 100 h | Real settlement with webhook reconciliation; real SMS/e-mail; real consultation media; data-processing agreement executed |
+| | | **Total** | **246 h** | |
 
 ## 12.4 The Principle Behind Every Debt Decision
 

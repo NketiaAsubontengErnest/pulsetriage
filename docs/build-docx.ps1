@@ -12,6 +12,8 @@ $root    = Split-Path -Parent $docs
 $out     = Join-Path $root '22424715_PulseTriage'
 $support = Join-Path $out 'Supporting_Files'
 
+# Rebuild from clean so repeated runs cannot nest copied folders inside themselves
+if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $out, $support | Out-Null
 
 $documents = @(

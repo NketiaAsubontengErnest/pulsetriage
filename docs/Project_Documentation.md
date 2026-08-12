@@ -32,7 +32,7 @@ This consolidated document is self-contained, but four companion documents conta
 | Document | Contents |
 | :--- | :--- |
 | `SRS.docx` | Complete IEEE 830-1998 Software Requirements Specification — 71 functional and 18 non-functional requirements (plus 16 external-interface requirements), each with a MoSCoW priority, a verification status and a full traceability matrix. |
-| `Testing_Report.docx` | 68 test cases, executed results, performance measurements, security probe evidence and the defect log. |
+| `Testing_Report.docx` | 72 test cases, executed results, performance measurements, security probe evidence and the defect log. |
 | `Technical_Debt_Plan.docx` | The 15-item technical debt register with the Debt → Cause → Impact → Priority → Resolution analysis and a costed repayment roadmap. |
 | `User_Manual.docx` | End-user operating instructions for all three roles. |
 
@@ -111,7 +111,7 @@ PulseTriage explicitly addresses **non-emergency outpatient triage and schedulin
 | **O3** | Build a deterministic, rules-as-data triage engine that scores 0–100, classifies into four tiers, and short-circuits on safety red flags. | Yes | `src/lib/triage-engine.ts`; 12 dedicated unit tests |
 | **O4** | Implement role-based portals for Patient, Doctor and Administrator over a persistent relational datastore. | Yes | 3 portals, 9 entities, 18 API endpoints |
 | **O5** | Implement booking with an abstracted, deterministic simulated payment gate and a notification queue. | Yes | `simulated-payment.ts`, `notifications.ts` |
-| **O6** | Test at unit, integration, system, security, performance and acceptance levels, and report failures as honestly as passes. | Yes | `Testing_Report.docx` — 68 cases, 7 defects raised including 3 Critical |
+| **O6** | Test at unit, integration, system, security, performance and acceptance levels, and report failures as honestly as passes. | Yes | `Testing_Report.docx` — 72 cases, 8 defects raised including 3 Critical |
 | **O7** | Identify, price, prioritise and schedule technical debt at the moment it is incurred, not retrospectively. | Yes | `Technical_Debt_Plan.docx` — 15 items, 246 person-hours costed |
 | **O8** | Deploy publicly with a managed cloud database and verify the live deployment. | Yes | <https://pulsetriage.vercel.app> — verified live |
 | **O9** | Produce a maintenance strategy and a costed 12-month evolution roadmap. | Yes | §15 and §16 |
@@ -752,11 +752,12 @@ Full detail is in `Testing_Report.docx`. Summary:
 | Unit — production rule engine | 12 | **12 pass** |
 | Unit — supporting modules | 10 | **10 pass** |
 | Static type analysis | 1 | **Pass** — zero diagnostics |
-| Performance | 10 | **All within budget** |
-| Security probes | 9 | **4 pass, 5 fail** |
+| Performance | 3 | **All within budget** (14 measurements) |
+| Security | 14 | **9 pass, 5 fail** |
 | Integration | 13 | **13 pass** |
 | System | 14 | **11 pass, 3 partial** |
 | User acceptance | 5 | **5 pass** |
+| **Total** | **72** | |
 
 **Headline measurements:**
 
@@ -764,7 +765,7 @@ Full detail is in `Testing_Report.docx`. Summary:
 - Live API p95: **425–1,167 ms** across seven targets, against a 2,000 ms budget.
 - Unauthenticated probes: **five endpoints returned 200 and disclosed protected data**.
 
-**Seven defects raised, three closed.** The most significant finding is **D-03**: two published critical red flags — suspected meningitis and uncontrolled bleeding — are presented to patients but are not bound to any `EMERGENCY` rule, so they contribute only 10 points instead of triggering the short-circuit. It was found by a *property-based* assertion ("every published red flag must be bound to an `EMERGENCY` rule") rather than by any example-based test, because every example test happened to use a flag that was covered.
+**Eight defects raised, three closed.** The most significant finding is **D-03**: two published critical red flags — suspected meningitis and uncontrolled bleeding — are presented to patients but are not bound to any `EMERGENCY` rule, so they contribute only 10 points instead of triggering the short-circuit. It was found by a *property-based* assertion ("every published red flag must be bound to an `EMERGENCY` rule") rather than by any example-based test, because every example test happened to use a flag that was covered.
 
 **The most instructive observation from the whole testing effort:** all three closed defects were found by functional testing, and **all five open defects were found by security probing and by reviewing the tests themselves.** The functional suite was entirely green while a complete authorisation bypass was live in production. Functional testing establishes that a system does what it should. It says nothing about whether the system also does what it should not.
 

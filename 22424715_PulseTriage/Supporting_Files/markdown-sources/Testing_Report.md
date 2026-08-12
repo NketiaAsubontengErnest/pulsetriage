@@ -27,15 +27,16 @@ date: "12 August 2026"
 
 | Metric | Value |
 | :--- | :--- |
-| Total test cases specified | **68** |
-| Automated test cases executed | **22** (all passing) |
-| Performance measurements executed | **10** |
-| Security probes executed | **9** (4 pass, 5 fail) |
-| Manual functional / system / UAT cases specified | **27** |
-| Defects raised | **7** |
-| Defects closed | **2** |
+| Total test cases specified | **72** |
+| Automated unit test cases executed | **22** (all passing) |
+| Static analysis checks | **1** (passing) |
+| Performance test cases | **3** (all within budget, comprising 14 measurements) |
+| Security test cases | **14** — 9 executed probes + 5 inspection checks (9 pass, 5 fail) |
+| Manual integration / system / UAT cases | **32** |
+| Defects raised | **8** |
+| Defects closed | **3** |
 | Defects open and tracked as technical debt | **5** |
-| Requirements with at least one verifying test | 58 of 61 (95%) |
+| Requirements with at least one executed test | 81 of 89 (91%) |
 
 **Overall verdict:** the system passes all functional testing for its stated demonstrator purpose, and **fails five security probes**. The security failures are not surprises — they are the executable proof of the CRITICAL items already recorded in the Technical Debt Plan (TD-01, TD-02, TD-03, TD-13). They are reported here with full reproduction steps precisely because a testing report that reports only passes is not a testing report.
 
@@ -425,7 +426,7 @@ The exposure is contained in the demonstrator only because every record in the d
 
 ## 8.1 Defect Analysis
 
-**Distribution by severity:** 3 Critical, 2 High, 2 Medium, plus 1 High closed during the phase.
+**Distribution by severity:** of the 5 open defects, 3 are Critical (D-01, D-02, D-05) and 2 are High (D-03, D-04). Of the 3 closed during Phase 4, 1 was High (D-06) and 2 were Medium (D-07, D-08).
 
 **Distribution by discovery method:** the three closed defects were found by *functional* testing; **all five open defects were found by security probing and by test review, not by functional testing at all.** This is the single most useful observation in the report. The functional test suite was green while a complete authorisation bypass was live in production. Functional testing establishes that a system does what it should; it says nothing whatsoever about whether the system also does what it should not.
 

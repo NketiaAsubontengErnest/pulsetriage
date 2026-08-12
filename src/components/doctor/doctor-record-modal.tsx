@@ -1,0 +1,244 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Appointment } from '@/lib/types';
+import { updateAppointment } from '@/lib/api';
+
+interface DoctorRecordModalProps {
+  appointment: Appointment;
+  onClose: () => void;
+  onRecordSaved: () => void;
+}
+
+export function DoctorRecordModal({ appointment, onClose, onRecordSaved }: DoctorRecordModalProps) {
+  const [subjective, setSubjective] = useState(
+    appointment.reason || 'Patient presents for scheduled consultation.'
+  );
+  const [vitals, setVitals] = useState({
+    bp: '120/80 mmHg',
+    temp: '36.8 °C',
+    hr: '75 bpm',
+    spo2: '98%',
+  });
+  const [assessment, setAssessment] = useState('Acute symptom presentation — evaluated.');
+  const [plan, setPlan] = useState('1. Paracetamol 500mg TDS x 5 days\n2. Hydration & rest\n3. Review in 1 week if unresolving.');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleGenerateAiSoap = async () => {
+    setIsAiGenerating(true);
+    try {
+      const res = await fetch('/api/ai/soap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientSymptoms: subjective,
+          doctorNotes: `Vitals: BP ${vitals.bp}, Temp ${vitals.temp}, HR ${vitals.hr}, SpO2 ${vitals.spo2}. Assessment: ${assessment}`,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.soap) {
+        if (data.soap.subjective) setSubjective(data.soap.subjective);
+        if (data.soap.assessment) setAssessment(data.soap.assessment);
+        if (data.soap.plan) setPlan(data.soap.plan);
+      }
+    } catch (err) {
+      console.warn('[AI SOAP FAIL]', err);
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleSaveRecord = async () => {
+    setIsSaving(true);
+    const fullClinicalRecord = `[CLINICAL EMR RECORD]
+Subjective: ${subjective}
+Vitals: BP ${vitals.bp} | Temp ${vitals.temp} | HR ${vitals.hr} | SpO2 ${vitals.spo2}
+Assessment: ${assessment}
+Plan & Prescriptions:
+${plan}
+Recorded by Dr. at ${new Date().toLocaleString()}`;
+
+    try {
+      await updateAppointment(appointment.id, {
+        notes: fullClinicalRecord,
+        status: 'COMPLETED',
+      });
+      setSaveSuccess(true);
+      setTimeout(() => {
+        onRecordSaved();
+        onClose();
+      }, 1200);
+    } catch (err) {
+      alert('Failed to save clinical record. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="app-modal-backdrop" role="dialog" aria-modal="true" aria-label="Clinical Consultation Record">
+      <div className="app-modal app-modal-lg">
+        <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+          {/* Header */}
+          <div className="card-header bg-primary text-white p-3 d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center gap-2">
+              <i className="bi bi-journal-medical fs-4 text-warning" />
+              <div>
+                <h3 className="h6 text-white mb-0 fw-bold">Clinical Consultation &amp; EMR Record Keeper</h3>
+                <small className="text-white-50" style={{ fontSize: '11px' }}>
+                  Patient: <strong>{appointment.patient_name}</strong> • Date: {appointment.appointment_date} ({appointment.start_time})
+                </small>
+              </div>
+            </div>
+            <button type="button" className="btn-close btn-close-white" onClick={onClose} aria-label="Close" />
+          </div>
+
+          <div className="card-body p-4 bg-light overflow-y-auto" style={{ maxHeight: '78vh' }}>
+            {saveSuccess && (
+              <div className="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+                <i className="bi bi-check-circle-fill fs-5" />
+                <span>Clinical record saved successfully! Appointment marked as COMPLETED.</span>
+              </div>
+            )}
+
+            {/* Patient Header Banner */}
+            <div className="card border-0 shadow-sm p-3 mb-3 bg-white rounded-3">
+              <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                  <span className="badge text-bg-primary me-1">{appointment.doctor_specialty}</span>
+                  <span className="badge text-bg-success">{appointment.status}</span>
+                  <h4 className="h6 mb-0 mt-1">{appointment.patient_name}</h4>
+                  <small className="text-muted">Patient ID: {appointment.patient_id}</small>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateAiSoap}
+                  disabled={isAiGenerating}
+                  className="btn btn-warning btn-sm fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+                >
+                  {isAiGenerating ? (
+                    <i className="bi bi-arrow-repeat spin" />
+                  ) : (
+                    <i className="bi bi-stars" />
+                  )}
+                  <span>{isAiGenerating ? 'Generating AI Note...' : '✨ AI Clinical SOAP Note (Kimi)'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Clinical Vitals Section */}
+            <div className="card border-0 shadow-sm p-3 mb-3 bg-white rounded-3">
+              <h5 className="h6 fw-bold mb-2 text-primary d-flex align-items-center gap-1.5">
+                <i className="bi bi-activity" /> Clinical Vitals &amp; Measurements
+              </h5>
+              <div className="row g-2">
+                <div className="col-6 col-md-3">
+                  <label className="form-label small mb-1">Blood Pressure</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    value={vitals.bp}
+                    onChange={(e) => setVitals({ ...vitals, bp: e.target.value })}
+                  />
+                </div>
+                <div className="col-6 col-md-3">
+                  <label className="form-label small mb-1">Temperature</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    value={vitals.temp}
+                    onChange={(e) => setVitals({ ...vitals, temp: e.target.value })}
+                  />
+                </div>
+                <div className="col-6 col-md-3">
+                  <label className="form-label small mb-1">Heart Rate</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    value={vitals.hr}
+                    onChange={(e) => setVitals({ ...vitals, hr: e.target.value })}
+                  />
+                </div>
+                <div className="col-6 col-md-3">
+                  <label className="form-label small mb-1">SpO2 Saturation</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    value={vitals.spo2}
+                    onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SOAP Note Fields */}
+            <div className="row g-3">
+              <div className="col-12 col-md-6">
+                <div className="card border-0 shadow-sm p-3 bg-white rounded-3 h-100">
+                  <label className="form-label fw-bold text-dark mb-1">
+                    S - Subjective (History &amp; Symptoms)
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="form-control form-control-sm"
+                    value={subjective}
+                    onChange={(e) => setSubjective(e.target.value)}
+                    placeholder="Patient complained of..."
+                  />
+                </div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <div className="card border-0 shadow-sm p-3 bg-white rounded-3 h-100">
+                  <label className="form-label fw-bold text-dark mb-1">
+                    A - Assessment (Diagnosis)
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="form-control form-control-sm"
+                    value={assessment}
+                    onChange={(e) => setAssessment(e.target.value)}
+                    placeholder="Clinical diagnosis..."
+                  />
+                </div>
+              </div>
+
+              <div className="col-12">
+                <div className="card border-0 shadow-sm p-3 bg-white rounded-3">
+                  <label className="form-label fw-bold text-dark mb-1">
+                    P - Plan &amp; Prescriptions
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="form-control form-control-sm font-mono"
+                    value={plan}
+                    onChange={(e) => setPlan(e.target.value)}
+                    placeholder="Medications, dosage, lab tests ordered, follow-up..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="card-footer bg-white p-3 d-flex align-items-center justify-content-between border-top">
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveRecord}
+              disabled={isSaving}
+              className="btn btn-success btn-sm fw-bold d-flex align-items-center gap-1.5"
+            >
+              <i className="bi bi-save" />
+              <span>{isSaving ? 'Saving Record...' : '💾 Save Clinical Record & Complete Visit'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -6,6 +6,7 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuth } from '@/lib/auth-context';
 import { getAppointments, updateAppointment } from '@/lib/api';
 import { TelehealthVideoRoom } from '@/components/video/telehealth-video-room';
+import { DoctorRecordModal } from '@/components/doctor/doctor-record-modal';
 
 export default function DoctorUpcomingWorksPage() {
   return (
@@ -30,6 +31,7 @@ function UpcomingWorksContent() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [activeVideoApp, setActiveVideoApp] = useState<Appointment | null>(null);
+  const [recordApp, setRecordApp] = useState<Appointment | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'VIDEO' | 'IN_PERSON'>('ALL');
   const [checkedInIds, setCheckedInIds] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -204,37 +206,47 @@ function UpcomingWorksContent() {
                     </div>
                   </div>
 
-                  {isVideo ? (
+                  <div className="d-flex flex-wrap gap-2 mt-3">
+                    {isVideo ? (
+                      <button
+                        className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2"
+                        type="button"
+                        onClick={() => handleLaunchVideoRoom(app)}
+                      >
+                        <i className="bi bi-camera-video" aria-hidden="true" />
+                        <span>Launch Telehealth Video Room</span>
+                      </button>
+                    ) : (
+                      <div className="flex-grow-1">
+                        {checkedInIds[app.id] ? (
+                          <div className="alert alert-success p-2 mb-0 d-flex align-items-center justify-content-between small">
+                            <span>
+                              <i className="bi bi-check-circle-fill me-1" />
+                              Patient Present &amp; Checked-In at {checkedInIds[app.id]}
+                            </span>
+                            <span className="badge text-bg-success">In Clinic</span>
+                          </div>
+                        ) : (
+                          <button
+                            className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2"
+                            type="button"
+                            onClick={() => handleCheckInPatient(app.id)}
+                          >
+                            <i className="bi bi-person-check" aria-hidden="true" />
+                            <span>Check-In Patient at Clinic Desk</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <button
-                      className="btn btn-primary w-100 mt-3 d-flex align-items-center justify-content-center gap-2"
+                      className="btn btn-warning text-dark font-semibold d-flex align-items-center gap-1.5"
                       type="button"
-                      onClick={() => handleLaunchVideoRoom(app)}
+                      onClick={() => setRecordApp(app)}
                     >
-                      <i className="bi bi-camera-video" aria-hidden="true" />
-                      <span>Launch Telehealth Video Room</span>
+                      <i className="bi bi-journal-medical" aria-hidden="true" />
+                      <span>Clinical Record Notes</span>
                     </button>
-                  ) : (
-                    <div className="mt-3">
-                      {checkedInIds[app.id] ? (
-                        <div className="alert alert-success p-2 mb-0 d-flex align-items-center justify-content-between small">
-                          <span>
-                            <i className="bi bi-check-circle-fill me-1" />
-                            Patient Present &amp; Checked-In at {checkedInIds[app.id]}
-                          </span>
-                          <span className="badge text-bg-success">In Clinic</span>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2"
-                          type="button"
-                          onClick={() => handleCheckInPatient(app.id)}
-                        >
-                          <i className="bi bi-person-check" aria-hidden="true" />
-                          <span>Check-In Patient at Clinic Desk</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  </div>
                 </article>
               </div>
             );
@@ -259,6 +271,17 @@ function UpcomingWorksContent() {
               window.dispatchEvent(new Event('storage'));
             } catch {}
             setActiveVideoApp(null);
+            fetchAppointments();
+          }}
+        />
+      )}
+
+      {recordApp && (
+        <DoctorRecordModal
+          appointment={recordApp}
+          onClose={() => setRecordApp(null)}
+          onRecordSaved={() => {
+            setRecordApp(null);
             fetchAppointments();
           }}
         />

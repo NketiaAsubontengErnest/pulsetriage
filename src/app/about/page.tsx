@@ -124,6 +124,22 @@ export default function AboutPage() {
               </h2>
               <div className="info-list">
                 <div>
+                  <span>Student Developer</span>
+                  <strong>Ernest Nketia Asubonteng (Index: 22424715)</strong>
+                </div>
+                <div>
+                  <span>Portfolio</span>
+                  <a
+                    href="https://enasubonteng.vercel.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary text-decoration-none fw-semibold"
+                  >
+                    <i className="bi bi-globe me-1" aria-hidden="true" />
+                    enasubonteng.vercel.app
+                  </a>
+                </div>
+                <div>
                   <span>Course</span>
                   <strong>CSCD 602 Advanced Software Engineering</strong>
                 </div>

@@ -42,13 +42,27 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         </main>
 
         <footer className="admin-footer">
-          <div className="container-fluid px-3 px-lg-4">
-            <span>
-              PulseTriage — Telehealth Appointment &amp; Urgency Auto-Triage System
+          <div className="container-fluid px-3 px-lg-4 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <strong>PulseTriage</strong> — Telehealth Appointment &amp; Urgency Auto-Triage System
               <br />
-              CSCD 602 Advanced Software Engineering Capstone Examination
-            </span>
-            <span>University of Ghana • Examiner: Prof. Solomon Mensah</span>
+              <small className="text-muted">
+                Student: <strong>Ernest Nketia Asubonteng</strong> (Index: <strong>22424715</strong>) • CSCD 602 Capstone
+              </small>
+            </div>
+            <div className="text-end small">
+              <span>University of Ghana • Examiner: Prof. Solomon Mensah</span>
+              <br />
+              <a
+                href="https://enasubonteng.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-decoration-none fw-semibold"
+              >
+                <i className="bi bi-globe me-1" aria-hidden="true" />
+                Portfolio: enasubonteng.vercel.app
+              </a>
+            </div>
           </div>
         </footer>
 

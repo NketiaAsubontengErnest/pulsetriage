@@ -1,0 +1,54 @@
+flowchart LR
+  Patient(("Patient"))
+  Doctor(("Doctor"))
+  Admin(("Administrator"))
+  LLM(("Ollama Cloud<br/>LLM Service"))
+
+  subgraph SYS["PulseTriage - Telehealth Appointment & Urgency Auto-Triage System"]
+    UC1["UC-01<br/>Register / Log In"]
+    UC2["UC-02<br/>Submit Symptom Triage"]
+    UC3["UC-03<br/>View Urgency Result<br/>& Emergency Redirect"]
+    UC4["UC-04<br/>Search & Filter Doctors"]
+    UC5["UC-05<br/>Book Consultation Slot"]
+    UC6["UC-06<br/>Complete Simulated Payment"]
+    UC7["UC-07<br/>Join Video Consultation Room"]
+    UC8["UC-08<br/>View Appointments<br/>& Notifications"]
+    UC9["UC-09<br/>Manage Availability Schedule"]
+    UC10["UC-10<br/>Review Urgency-Sorted Queue"]
+    UC11["UC-11<br/>Record Clinical / SOAP Notes"]
+    UC12["UC-12<br/>Complete Consultation"]
+    UC13["UC-13<br/>Verify Doctor Licences"]
+    UC14["UC-14<br/>Monitor System Metrics"]
+    UC15["UC-15<br/>Inspect Audit Trail"]
+    UC16["UC-16<br/>Manage Triage Rules<br/>& Specializations"]
+    UC17["UC-17<br/>AI Clinical Assistance<br/>(SOAP, chat, no-show risk)"]
+  end
+
+  Patient --- UC1
+  Patient --- UC2
+  Patient --- UC3
+  Patient --- UC4
+  Patient --- UC5
+  Patient --- UC6
+  Patient --- UC7
+  Patient --- UC8
+
+  Doctor --- UC1
+  Doctor --- UC9
+  Doctor --- UC10
+  Doctor --- UC11
+  Doctor --- UC12
+  Doctor --- UC7
+  Doctor --- UC17
+
+  Admin --- UC1
+  Admin --- UC13
+  Admin --- UC14
+  Admin --- UC15
+  Admin --- UC16
+
+  UC2 -.->|include| UC3
+  UC5 -.->|include| UC6
+  UC3 -.->|extend| UC5
+  UC17 -.-> LLM
+  UC2 -.->|optional AI path| LLM

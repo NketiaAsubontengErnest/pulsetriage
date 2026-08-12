@@ -1,0 +1,74 @@
+flowchart TB
+  subgraph CLIENT["Client Tier - Browser (Responsive)"]
+    P["Patient Portal<br/>/patient, /triage, /booking"]
+    D["Doctor Workspace<br/>/doctor, /room/[id]"]
+    A["Admin Console<br/>/admin, /admin/audit"]
+    CTX["AuthContext + UIContext<br/>(React 19 Client State)"]
+  end
+
+  subgraph EDGE["Presentation / Delivery Tier - Vercel Edge"]
+    NX["Next.js 15 App Router<br/>Server Components + SSR"]
+  end
+
+  subgraph API["Application Tier - Next.js Route Handlers (Serverless)"]
+    AUTH["/api/auth/login<br/>/api/auth/register"]
+    APPT["/api/appointments<br/>/api/doctors  /api/patients"]
+    TRI["/api/triage<br/>Rule Engine Endpoint"]
+    PAY["/api/payments<br/>Simulated Gateway"]
+    NOTIF["/api/notifications"]
+    AUD["/api/audit"]
+    AIR["/api/ai/*<br/>triage, soap, chat, doctor-match,<br/>no-show-risk, analyze-report"]
+  end
+
+  subgraph DOMAIN["Domain / Business Logic Layer"]
+    RE["triage-engine.ts<br/>Deterministic Rule Engine"]
+    SP["simulated-payment.ts<br/>Payment Gate Abstraction"]
+    NQ["notifications.ts<br/>Notification Queue Abstraction"]
+    AIS["ai/ai-services.ts<br/>LLM Clinical Assistants"]
+  end
+
+  subgraph DATA["Data Tier"]
+    PR["Prisma ORM v5<br/>Type-safe Data Access"]
+    PG[("Neon / Supabase<br/>Cloud PostgreSQL")]
+  end
+
+  subgraph EXT["External Services"]
+    LLM["Ollama Cloud LLM API<br/>(llama3.2 + fallbacks)"]
+  end
+
+  P --> CTX
+  D --> CTX
+  A --> CTX
+  CTX --> NX
+  NX --> AUTH
+  NX --> APPT
+  NX --> TRI
+  NX --> PAY
+  NX --> NOTIF
+  NX --> AUD
+  NX --> AIR
+
+  TRI --> RE
+  PAY --> SP
+  NOTIF --> NQ
+  AIR --> AIS
+  AIS -->|HTTPS + Bearer token| LLM
+
+  AUTH --> PR
+  APPT --> PR
+  TRI --> PR
+  PAY --> PR
+  NOTIF --> PR
+  AUD --> PR
+  PR --> PG
+
+  classDef client fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+  classDef api fill:#dcfce7,stroke:#15803d,color:#0f172a
+  classDef domain fill:#fef3c7,stroke:#b45309,color:#0f172a
+  classDef data fill:#ede9fe,stroke:#6d28d9,color:#0f172a
+  classDef ext fill:#fee2e2,stroke:#b91c1c,color:#0f172a
+  class P,D,A,CTX client
+  class AUTH,APPT,TRI,PAY,NOTIF,AUD,AIR api
+  class RE,SP,NQ,AIS domain
+  class PR,PG data
+  class LLM ext

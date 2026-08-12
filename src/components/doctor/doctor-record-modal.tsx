@@ -12,7 +12,7 @@ interface DoctorRecordModalProps {
 
 export function DoctorRecordModal({ appointment, onClose, onRecordSaved }: DoctorRecordModalProps) {
   const [subjective, setSubjective] = useState(
-    appointment.reason || 'Patient presents for scheduled consultation.'
+    appointment.reason || 'Patient presents with acute symptoms for clinical consultation.'
   );
   const [vitals, setVitals] = useState({
     bp: '120/80 mmHg',
@@ -23,28 +23,42 @@ export function DoctorRecordModal({ appointment, onClose, onRecordSaved }: Docto
   const [assessment, setAssessment] = useState('Acute symptom presentation — evaluated.');
   const [plan, setPlan] = useState('1. Paracetamol 500mg TDS x 5 days\n2. Hydration & rest\n3. Review in 1 week if unresolving.');
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleGenerateAiSoap = async () => {
     setIsAiGenerating(true);
+    setAiMessage(null);
+
+    const fullTranscript = `Patient Name: ${appointment.patient_name || 'Patient'}
+Primary Complaint: ${subjective}
+Vitals Observed: BP ${vitals.bp}, Temp ${vitals.temp}, Heart Rate ${vitals.hr}, SpO2 ${vitals.spo2}
+Doctor Diagnostic Notes: ${assessment}`;
+
     try {
       const res = await fetch('/api/ai/soap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          patientSymptoms: subjective,
-          doctorNotes: `Vitals: BP ${vitals.bp}, Temp ${vitals.temp}, HR ${vitals.hr}, SpO2 ${vitals.spo2}. Assessment: ${assessment}`,
+          transcript: fullTranscript,
+          patientName: appointment.patient_name,
         }),
       });
+
       const data = await res.json();
-      if (data.success && data.soap) {
-        if (data.soap.subjective) setSubjective(data.soap.subjective);
-        if (data.soap.assessment) setAssessment(data.soap.assessment);
-        if (data.soap.plan) setPlan(data.soap.plan);
+      if (data.success && data.soapNote) {
+        const note = data.soapNote;
+        if (note.subjective) setSubjective(note.subjective);
+        if (note.assessment) setAssessment(note.assessment);
+        if (note.plan) setPlan(note.plan);
+        setAiMessage('✨ AI Clinical SOAP note generated successfully!');
+      } else {
+        setAiMessage('⚠️ AI generation delayed. Default clinical structure provided.');
       }
     } catch (err) {
       console.warn('[AI SOAP FAIL]', err);
+      setAiMessage('⚠️ AI connection notice. Local clinical template loaded.');
     } finally {
       setIsAiGenerating(false);
     }
@@ -82,7 +96,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
       <div className="app-modal app-modal-lg">
         <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
           {/* Header */}
-          <div className="card-header bg-primary text-white p-3 d-flex align-items-center justify-content-between">
+          <div className="card-header bg-primary text-white p-3 d-flex align-items-center justify-content-between border-0">
             <div className="d-flex align-items-center gap-2">
               <i className="bi bi-journal-medical fs-4 text-warning" />
               <div>
@@ -103,6 +117,13 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
               </div>
             )}
 
+            {aiMessage && (
+              <div className="alert alert-info d-flex align-items-center justify-content-between p-2.5 mb-3" role="alert">
+                <span className="small font-medium">{aiMessage}</span>
+                <button type="button" className="btn-close btn-sm" onClick={() => setAiMessage(null)} aria-label="Close" />
+              </div>
+            )}
+
             {/* Patient Header Banner */}
             <div className="card border-0 shadow-sm p-3 mb-3 bg-white rounded-3">
               <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -116,7 +137,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
                   type="button"
                   onClick={handleGenerateAiSoap}
                   disabled={isAiGenerating}
-                  className="btn btn-warning btn-sm fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+                  className="btn btn-warning btn-sm fw-bold d-flex align-items-center gap-1.5 shadow-sm text-dark"
                 >
                   {isAiGenerating ? (
                     <i className="bi bi-arrow-repeat spin" />
@@ -181,7 +202,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
                     S - Subjective (History &amp; Symptoms)
                   </label>
                   <textarea
-                    rows={3}
+                    rows={4}
                     className="form-control form-control-sm"
                     value={subjective}
                     onChange={(e) => setSubjective(e.target.value)}
@@ -196,7 +217,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
                     A - Assessment (Diagnosis)
                   </label>
                   <textarea
-                    rows={3}
+                    rows={4}
                     className="form-control form-control-sm"
                     value={assessment}
                     onChange={(e) => setAssessment(e.target.value)}

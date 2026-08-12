@@ -1,0 +1,43 @@
+flowchart TD
+  S(["Start: Patient opens /triage"]) --> A1["Step 1: Select primary symptom category"]
+  A1 --> A2["Step 2: Select symptom duration"]
+  A2 --> A3["Step 3: Set pain intensity 1-10"]
+  A3 --> A4["Step 4: Tick any critical red flags"]
+  A4 --> A5["Submit: evaluateSymptomTriage(input)"]
+
+  A5 --> D1{"Any red flag matched to an<br/>EMERGENCY rule?"}
+  D1 -->|Yes| E1["score = 95, urgency = EMERGENCY<br/>is_emergency_redirect = true"]
+  E1 --> E2["Display emergency redirect banner<br/>Call 112 / nearest emergency room"]
+  E2 --> E3["Persist assessment + EMERGENCY notification"]
+  E3 --> X1(["End: Booking flow suppressed"])
+
+  D1 -->|No| C1["score = severity x 8"]
+  C1 --> C2{"duration <= 2 days?"}
+  C2 -->|Yes| C3["score += 15 (acute onset)"]
+  C2 -->|No| C4{"duration > 14 days?"}
+  C4 -->|Yes| C5["score += 5 (chronic)"]
+  C4 -->|No| C6["no duration adjustment"]
+  C3 --> C7
+  C5 --> C7
+  C6 --> C7["score += 10 x number of non-critical red flags"]
+  C7 --> C8["finalScore = clamp(score, 0, 100)"]
+  C8 --> C9["Match highest priority_weight active rule<br/>where severity >= severity_threshold"]
+
+  C9 --> D2{"finalScore >= 80?"}
+  D2 -->|Yes| U1["urgency = EMERGENCY"]
+  D2 -->|No| D3{"finalScore >= 60 or<br/>matched rule = URGENT?"}
+  D3 -->|Yes| U2["urgency = URGENT<br/>book within 24 hours"]
+  D3 -->|No| D4{"finalScore >= 35 or<br/>matched rule = SEMI_URGENT?"}
+  D4 -->|Yes| U3["urgency = SEMI_URGENT<br/>book within 48 hours"]
+  D4 -->|No| U4["urgency = ROUTINE<br/>book within 7 days"]
+
+  U1 --> R1
+  U2 --> R1
+  U3 --> R1
+  U4 --> R1["Apply matched rule's action_recommendation<br/>and recommended_specialty"]
+  R1 --> R2["POST /api/triage - persist assessment,<br/>notification and audit log"]
+  R2 --> R3["Render urgency card with score,<br/>specialty and next-step guidance"]
+  R3 --> R4{"Patient chooses to book?"}
+  R4 -->|Yes| B1["Redirect to /booking filtered by<br/>recommended specialty"]
+  R4 -->|No| X2(["End: Assessment stored in history"])
+  B1 --> X3(["End: Continue to booking + payment flow"])

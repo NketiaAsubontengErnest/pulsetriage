@@ -1,0 +1,128 @@
+classDiagram
+  direction TB
+
+  class TriageInput {
+    +string primary_symptom
+    +string category
+    +number severity
+    +number duration_days
+    +string[] red_flags
+    +string additional_notes
+  }
+
+  class TriageResultOutput {
+    +number severity_score
+    +UrgencyLevel urgency_level
+    +string action_recommendation
+    +string recommended_specialty
+    +string[] matched_rules
+    +boolean is_emergency_redirect
+  }
+
+  class DynamicTriageRule {
+    +string id
+    +string category
+    +string symptom
+    +number severity_threshold
+    +string[] red_flags_required
+    +UrgencyLevel urgency_output
+    +string action_recommendation
+    +string recommended_specialty
+    +boolean active
+    +number priority_weight
+  }
+
+  class TriageEngine {
+    <<module: lib/triage-engine.ts>>
+    +CRITICAL_RED_FLAGS: string[]
+    +SYMPTOM_SPECIALTY_MAP: Record
+    +INITIAL_TRIAGE_RULES: DynamicTriageRule[]
+    +evaluateSymptomTriage(input, rules) TriageResultOutput
+    +evaluateTriageRules(input, patientId) TriageAssessment
+  }
+
+  class PaymentGateway {
+    <<module: lib/simulated-payment.ts>>
+    +processSimulatedPayment(req) Promise~PaymentResult~
+  }
+
+  class PaymentRequest {
+    +string appointment_id
+    +string patient_id
+    +number amount
+    +string payment_method
+    +string provider
+    +string account_number
+  }
+
+  class PaymentResult {
+    +boolean success
+    +string message
+    +string transaction_ref
+    +PaymentLog payment_log
+  }
+
+  class NotificationService {
+    <<module: lib/notifications.ts>>
+    +getUserNotifications(userId) NotificationItem[]
+    +createNotification(userId, title, message, type) NotificationItem
+    +markAsRead(id) void
+  }
+
+  class AIServices {
+    <<module: lib/ai/ai-services.ts>>
+    +analyzeSymptomTriageAI(desc, info) AITriageResult
+    +generateSoapNotesAI(transcript, patient) SOAPNoteResult
+    +analyzeLabReportAI(text) LabAnalysisResult
+    +predictNoShowRiskAI(context) NoShowRiskResult
+    +matchDoctorAI(triage, doctors) DoctorMatchResult
+    +chatWithAssistantAI(messages) string
+  }
+
+  class OllamaClient {
+    <<module: lib/ai/ollama-client.ts>>
+    +DEFAULT_AI_MODEL: string
+    +FALLBACK_MODELS: string[]
+    +queryOllama(messages, options) Promise~string~
+    +queryOllamaJson(messages, fallback, options) Promise~T~
+  }
+
+  class PrismaClient {
+    <<lib/db.ts>>
+    +user
+    +doctor
+    +doctorSchedule
+    +triageAssessment
+    +appointment
+    +paymentLog
+    +notification
+    +specialization
+    +auditLog
+  }
+
+  class AuthContext {
+    <<React Context: lib/auth-context.tsx>>
+    +User user
+    +boolean isAuthenticated
+    +boolean isLoading
+    +login(email, password) Promise
+    +register(payload) Promise
+    +logout() void
+  }
+
+  class AuthGuard {
+    <<React Component>>
+    +allowedRoles: Role[]
+    +render() ReactNode
+  }
+
+  TriageEngine ..> TriageInput : consumes
+  TriageEngine ..> TriageResultOutput : produces
+  TriageEngine o-- DynamicTriageRule : evaluates
+  PaymentGateway ..> PaymentRequest : consumes
+  PaymentGateway ..> PaymentResult : produces
+  AIServices ..> OllamaClient : delegates
+  AuthGuard ..> AuthContext : reads
+  TriageEngine ..> PrismaClient : persists via API route
+  PaymentGateway ..> PrismaClient : persists via API route
+  NotificationService ..> PrismaClient : persists via API route

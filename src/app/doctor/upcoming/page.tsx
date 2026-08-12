@@ -66,11 +66,15 @@ function UpcomingWorksContent() {
     } catch {}
   };
 
+  const isAppointmentVideo = (app: Appointment) => {
+    const charCode = app.id.charCodeAt(app.id.length - 1);
+    return charCode % 2 === 0;
+  };
+
   const filteredAppointments = appointments.filter((app) => {
-    const isVideo = app.id.charCodeAt(0) % 2 === 0;
-    const mode = isVideo ? 'VIDEO' : 'IN_PERSON';
-    if (filterType === 'VIDEO') return mode === 'VIDEO';
-    if (filterType === 'IN_PERSON') return mode === 'IN_PERSON';
+    const isVideo = isAppointmentVideo(app);
+    if (filterType === 'VIDEO') return isVideo;
+    if (filterType === 'IN_PERSON') return !isVideo;
     return true;
   });
 
@@ -142,9 +146,8 @@ function UpcomingWorksContent() {
         </div>
       ) : (
         <div className="row g-3">
-          {filteredAppointments.map((app, index) => {
-            // Determine type: even index = Telehealth Video, odd index = In-Person Clinic Visit
-            const isVideo = index % 2 === 0;
+          {filteredAppointments.map((app) => {
+            const isVideo = isAppointmentVideo(app);
 
             return (
               <div className="col-12 col-xl-6" key={app.id}>

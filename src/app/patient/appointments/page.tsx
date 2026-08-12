@@ -180,8 +180,8 @@ function PatientAppointmentsContent() {
           </div>
         ) : (
           <div className="row g-3">
-            {confirmedApps.map((app, idx) => {
-              const isVideo = idx % 2 === 0;
+            {confirmedApps.map((app) => {
+              const isVideo = app.id.charCodeAt(app.id.length - 1) % 2 === 0;
               const isDoctorInRoom = activeDoctorRoomId === app.id;
 
               return (

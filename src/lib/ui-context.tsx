@@ -50,15 +50,14 @@ export const UiProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [sidebarMini, setSidebarMini] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // ── Restore the saved theme (falling back to the OS preference) ──────────
+  // ── Primary View default is ALWAYS light mode unless user explicitly selected dark ──
   useEffect(() => {
     const saved = readStorage(THEME_KEY);
     if (saved === 'dark' || saved === 'light') {
       setTheme(saved);
       return;
     }
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    setTheme(prefersDark ? 'dark' : 'light');
+    setTheme('light');
   }, []);
 
   // Bootstrap reads data-bs-theme; the template's style.css reads data-theme.

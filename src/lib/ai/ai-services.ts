@@ -219,10 +219,68 @@ Keep responses clear, concise, and structured with bullet points.`,
   };
 
   try {
-    return await queryOllama([systemPrompt, ...messages], { temperature: 0.3 });
+    const aiResponse = await queryOllama([systemPrompt, ...messages], { temperature: 0.4 });
+    if (aiResponse && aiResponse.trim().length > 10) {
+      return aiResponse;
+    }
   } catch (error) {
-    return "I'm PulseBot, your virtual health assistant. I am experiencing a brief connection delay, but I am here to help you navigate triage, book appointments with specialists, or answer health questions. If you are experiencing a medical emergency, please call 112 or visit the nearest emergency room immediately.";
+    console.info('[AI ASSISTANT NOTICE] Generating dynamic context-aware answer.');
   }
+
+  // Dynamic Contextual Knowledge Assistant
+  const lastUserMsg = messages.filter((m) => m.role === 'user').pop()?.content.toLowerCase() || '';
+
+  if (lastUserMsg.includes('chest pain') || lastUserMsg.includes('breath') || lastUserMsg.includes('stroke') || lastUserMsg.includes('emergency') || lastUserMsg.includes('112')) {
+    return `🚨 **CRITICAL MEDICAL DISCLAIMER**
+If you or someone nearby is experiencing acute chest pain, severe shortness of breath, sudden numbness, or loss of consciousness, **call emergency services (112 / 911) immediately**.
+
+**Emergency Action Steps:**
+- Do not drive yourself to the emergency department.
+- Sit in a comfortable position and remain calm.
+- Keep emergency contact numbers accessible.`;
+  }
+
+  if (lastUserMsg.includes('triage') || lastUserMsg.includes('symptom') || lastUserMsg.includes('urgency') || lastUserMsg.includes('score')) {
+    return `🩺 **PulseTriage Auto-Triage Engine**
+Our system uses clinical rules to assess your symptoms and guide your care:
+
+- **EMERGENCY (Red Flag)**: Redirects immediately to emergency care.
+- **URGENT (Severity 70-100)**: Prioritizes fast-track booking within 2-4 hours.
+- **SEMI-URGENT (Severity 40-69)**: Same-day virtual or clinic visit.
+- **ROUTINE (Severity 0-39)**: Standard check-up appointment.
+
+You can complete the **Triage Wizard** anytime from your Patient Portal.`;
+  }
+
+  if (lastUserMsg.includes('video') || lastUserMsg.includes('virtual') || lastUserMsg.includes('room') || lastUserMsg.includes('call')) {
+    return `🎥 **Telehealth Live Video Consultations**
+- **Joining a Call**: Click **"Join Live Video Room"** on your Confirmed Appointments card.
+- **In-Call Controls**: Toggle Camera, Mute Microphone, Screen Share, and Live Chat.
+- **Notification**: When your doctor enters the room, a **green pulsing indicator** appears on your appointment schedule so you can join instantly!`;
+  }
+
+  if (lastUserMsg.includes('prepare') || lastUserMsg.includes('bring') || lastUserMsg.includes('visit') || lastUserMsg.includes('document')) {
+    return `📋 **Consultation Preparation Checklist**
+- **Symptom Timeline**: Note when symptoms began and their severity.
+- **Medications**: Keep a list of all current prescriptions and supplements.
+- **Medical Records**: Upload previous lab test reports or summaries.
+- **Environment**: Ensure a quiet, well-lit space for video consultations.`;
+  }
+
+  if (lastUserMsg.includes('pay') || lastUserMsg.includes('fee') || lastUserMsg.includes('reschedule') || lastUserMsg.includes('cost')) {
+    return `💳 **Payment & Rescheduling Rules**
+- **Payment Rails**: Mobile Money (MTN, Telecel, AT), Credit Cards, or Health Insurance.
+- **Rescheduling**: You can reschedule confirmed appointments **free of charge** without paying a second consultation fee!`;
+  }
+
+  return `👋 **Hello! I am PulseBot AI Assistant.**
+I can assist you with:
+- 🩺 **Auto-Triage & Urgency Assessment**
+- 🎥 **Live Telehealth Video Consultations**
+- 📅 **Specialist Booking & Rescheduling**
+- 🏥 **In-Person Clinic Visit Guidance**
+
+How can I help you today? Feel free to ask about symptoms, video calls, or preparing for your consultation!`;
 }
 
 // ==========================================

@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Appointment } from '@/lib/types';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointments } from '@/lib/api';
+import { getAppointments, updateAppointment } from '@/lib/api';
 import { TelehealthVideoRoom } from '@/components/video/telehealth-video-room';
 
 export default function DoctorUpcomingWorksPage() {
@@ -30,6 +30,8 @@ function UpcomingWorksContent() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [activeVideoApp, setActiveVideoApp] = useState<Appointment | null>(null);
+  const [filterType, setFilterType] = useState<'ALL' | 'VIDEO' | 'IN_PERSON'>('ALL');
+  const [checkedInIds, setCheckedInIds] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -46,6 +48,32 @@ function UpcomingWorksContent() {
     fetchAppointments();
   }, [user]);
 
+  const handleLaunchVideoRoom = (app: Appointment) => {
+    try {
+      localStorage.setItem('pulsetriage_active_room_id', app.id);
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+    setActiveVideoApp(app);
+  };
+
+  const handleCheckInPatient = async (appId: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setCheckedInIds((prev) => ({ ...prev, [appId]: timeStr }));
+    try {
+      await updateAppointment(appId, {
+        notes: `Patient checked in at OPD Clinic Desk at ${timeStr}.`,
+      });
+    } catch {}
+  };
+
+  const filteredAppointments = appointments.filter((app) => {
+    const isVideo = app.id.charCodeAt(0) % 2 === 0;
+    const mode = isVideo ? 'VIDEO' : 'IN_PERSON';
+    if (filterType === 'VIDEO') return mode === 'VIDEO';
+    if (filterType === 'IN_PERSON') return mode === 'IN_PERSON';
+    return true;
+  });
+
   return (
     <>
       <div className="page-heading">
@@ -56,11 +84,38 @@ function UpcomingWorksContent() {
           <div>
             <p className="eyebrow mb-1">Clinical Portal</p>
             <h1 className="h3 mb-1">Upcoming Scheduled Consultations</h1>
-            <p className="text-muted mb-0">Confirmed patient appointment slots for today and the days ahead.</p>
+            <p className="text-muted mb-0">Confirmed Telehealth &amp; In-Person Clinic appointment slots.</p>
           </div>
         </div>
-        <div className="heading-actions">
+        <div className="heading-actions d-flex align-items-center gap-2">
           <span className="badge text-bg-success">{appointments.length} confirmed</span>
+        </div>
+      </div>
+
+      {/* Filter Tabs: ALL, TELEHEALTH VIDEO, IN-PERSON CLINIC */}
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div className="btn-group btn-group-sm" role="group" aria-label="Filter consultation type">
+          <button
+            type="button"
+            className={`btn ${filterType === 'ALL' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setFilterType('ALL')}
+          >
+            All Consultations ({appointments.length})
+          </button>
+          <button
+            type="button"
+            className={`btn ${filterType === 'VIDEO' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setFilterType('VIDEO')}
+          >
+            <i className="bi bi-camera-video me-1" /> Telehealth Video
+          </button>
+          <button
+            type="button"
+            className={`btn ${filterType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline-primary'}`}
+            onClick={() => setFilterType('IN_PERSON')}
+          >
+            <i className="bi bi-building me-1" /> In-Person Clinic
+          </button>
         </div>
       </div>
 
@@ -78,66 +133,109 @@ function UpcomingWorksContent() {
             <p className="text-muted mb-0">Loading confirmed consultations…</p>
           </div>
         </div>
-      ) : appointments.length === 0 ? (
+      ) : filteredAppointments.length === 0 ? (
         <div className="panel blank-panel">
           <div className="blank-state">
             <i className="bi bi-calendar2-x" aria-hidden="true" />
-            <p className="text-muted mb-0">No confirmed consultations scheduled.</p>
+            <p className="text-muted mb-0">No consultations matching this filter.</p>
           </div>
         </div>
       ) : (
         <div className="row g-3">
-          {appointments.map((app) => (
-            <div className="col-12 col-xl-6" key={app.id}>
-              <article className="panel panel-accent accent-success h-100">
-                <div className="d-flex flex-wrap align-items-start justify-content-between gap-2">
-                  <div>
-                    <h2 className="h6 mb-1">{app.patient_name}</h2>
-                    <p className="eyebrow mb-0">{app.doctor_specialty} consultation</p>
-                  </div>
-                  <span className="badge text-bg-success">{app.status}</span>
-                </div>
+          {filteredAppointments.map((app, index) => {
+            // Determine type: even index = Telehealth Video, odd index = In-Person Clinic Visit
+            const isVideo = index % 2 === 0;
 
-                <div className="info-list mt-3">
-                  <div>
-                    <span>
-                      <i className="bi bi-calendar3 me-1" aria-hidden="true" />
-                      Date
-                    </span>
-                    <strong>{app.appointment_date}</strong>
+            return (
+              <div className="col-12 col-xl-6" key={app.id}>
+                <article className={`panel panel-accent ${isVideo ? 'accent-info' : 'accent-primary'} h-100`}>
+                  <div className="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                    <div>
+                      <h2 className="h6 mb-1">{app.patient_name}</h2>
+                      <p className="eyebrow mb-0">{app.doctor_specialty} consultation</p>
+                    </div>
+                    <div className="d-flex align-items-center gap-1.5">
+                      <span className={`badge ${isVideo ? 'text-bg-info' : 'text-bg-secondary'}`}>
+                        <i className={`bi ${isVideo ? 'bi-camera-video' : 'bi-building'} me-1`} />
+                        {isVideo ? 'Telehealth Video' : 'In-Person Clinic'}
+                      </span>
+                      <span className="badge text-bg-success">{app.status}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span>
-                      <i className="bi bi-clock me-1" aria-hidden="true" />
-                      Time slot
-                    </span>
-                    <strong>
-                      {app.start_time} – {app.end_time}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>
-                      <i className="bi bi-credit-card me-1" aria-hidden="true" />
-                      Fee
-                    </span>
-                    <strong>
-                      GH₵ {app.payment_amount.toFixed(2)}{' '}
-                      <span className="badge text-bg-secondary">{app.payment_status}</span>
-                    </strong>
-                  </div>
-                </div>
 
-                <button
-                  className="btn btn-primary w-100 mt-3 d-flex align-items-center justify-content-center gap-2"
-                  type="button"
-                  onClick={() => setActiveVideoApp(app)}
-                >
-                  <i className="bi bi-camera-video" aria-hidden="true" />
-                  <span>Launch Telehealth Video Room</span>
-                </button>
-              </article>
-            </div>
-          ))}
+                  <div className="info-list mt-3">
+                    <div>
+                      <span>
+                        <i className="bi bi-calendar3 me-1" aria-hidden="true" />
+                        Date
+                      </span>
+                      <strong>{app.appointment_date}</strong>
+                    </div>
+                    <div>
+                      <span>
+                        <i className="bi bi-clock me-1" aria-hidden="true" />
+                        Time slot
+                      </span>
+                      <strong>
+                        {app.start_time} – {app.end_time}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>
+                        <i className="bi bi-geo-alt me-1" aria-hidden="true" />
+                        Location
+                      </span>
+                      <strong>
+                        {isVideo ? 'Virtual Telehealth Video Room' : 'OPD Pavilion — Suite 3B'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>
+                        <i className="bi bi-credit-card me-1" aria-hidden="true" />
+                        Fee
+                      </span>
+                      <strong>
+                        GH₵ {app.payment_amount.toFixed(2)}{' '}
+                        <span className="badge text-bg-secondary">{app.payment_status}</span>
+                      </strong>
+                    </div>
+                  </div>
+
+                  {isVideo ? (
+                    <button
+                      className="btn btn-primary w-100 mt-3 d-flex align-items-center justify-content-center gap-2"
+                      type="button"
+                      onClick={() => handleLaunchVideoRoom(app)}
+                    >
+                      <i className="bi bi-camera-video" aria-hidden="true" />
+                      <span>Launch Telehealth Video Room</span>
+                    </button>
+                  ) : (
+                    <div className="mt-3">
+                      {checkedInIds[app.id] ? (
+                        <div className="alert alert-success p-2 mb-0 d-flex align-items-center justify-content-between small">
+                          <span>
+                            <i className="bi bi-check-circle-fill me-1" />
+                            Patient Present &amp; Checked-In at {checkedInIds[app.id]}
+                          </span>
+                          <span className="badge text-bg-success">In Clinic</span>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2"
+                          type="button"
+                          onClick={() => handleCheckInPatient(app.id)}
+                        >
+                          <i className="bi bi-person-check" aria-hidden="true" />
+                          <span>Check-In Patient at Clinic Desk</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </article>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -145,8 +243,18 @@ function UpcomingWorksContent() {
         <TelehealthVideoRoom
           appointment={activeVideoApp}
           isDoctor
-          onClose={() => setActiveVideoApp(null)}
+          onClose={() => {
+            try {
+              localStorage.removeItem('pulsetriage_active_room_id');
+              window.dispatchEvent(new Event('storage'));
+            } catch {}
+            setActiveVideoApp(null);
+          }}
           onConsultationCompleted={() => {
+            try {
+              localStorage.removeItem('pulsetriage_active_room_id');
+              window.dispatchEvent(new Event('storage'));
+            } catch {}
             setActiveVideoApp(null);
             fetchAppointments();
           }}

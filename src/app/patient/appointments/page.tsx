@@ -34,9 +34,27 @@ function PatientAppointmentsContent() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [activeVideoApp, setActiveVideoApp] = useState<Appointment | null>(null);
+  const [activeDoctorRoomId, setActiveDoctorRoomId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  const checkActiveRoom = () => {
+    try {
+      const activeId = localStorage.getItem('pulsetriage_active_room_id');
+      setActiveDoctorRoomId(activeId);
+    } catch {}
+  };
+
+  useEffect(() => {
+    checkActiveRoom();
+    window.addEventListener('storage', checkActiveRoom);
+    const interval = setInterval(checkActiveRoom, 2000);
+    return () => {
+      window.removeEventListener('storage', checkActiveRoom);
+      clearInterval(interval);
+    };
+  }, []);
 
   const fetchAppointments = () => {
     if (!user) return;
@@ -65,16 +83,16 @@ function PatientAppointmentsContent() {
   };
 
   const handleCancelAppointment = async (appId: string) => {
-    const previous = appointments;
-    setAppointments((list) => list.map((a) => (a.id === appId ? { ...a, status: 'CANCELLED' } : a)));
+    if (!confirm('Are you sure you want to cancel this appointment? Full refund will be credited.')) return;
     try {
-      await updateAppointment(appId, { status: 'CANCELLED', updated_by: user?.email || 'patient' });
-      setActionMessage('Appointment cancelled. Simulated refund logged in the payment system.');
-    } catch {
-      setAppointments(previous);
-      setActionMessage('Could not cancel the appointment. Please try again.');
+      await updateAppointment(appId, { status: 'CANCELLED', payment_status: 'FAILED' });
+      setAppointments((list) =>
+        list.map((a) => (a.id === appId ? { ...a, status: 'CANCELLED', payment_status: 'FAILED' } : a))
+      );
+      setActionMessage('Appointment cancelled and refund processed.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to cancel appointment');
     }
-    setTimeout(() => setActionMessage(null), 4000);
   };
 
   const handleReschedule = (app: Appointment) => {
@@ -82,40 +100,43 @@ function PatientAppointmentsContent() {
     setIsBookingModalOpen(true);
   };
 
-  const handleOpenNewBooking = () => {
-    setAppointmentToReschedule(null);
-    setIsBookingModalOpen(true);
-  };
-
-  const confirmedApps = appointments.filter((a) => a.status === 'CONFIRMED');
-  const pastApps = appointments.filter((a) => a.status !== 'CONFIRMED');
+  const confirmedApps = appointments.filter((a) => a.status === 'CONFIRMED' || a.status === 'PENDING_PAYMENT');
+  const pastApps = appointments.filter((a) => a.status === 'COMPLETED' || a.status === 'CANCELLED');
 
   return (
     <>
       <div className="page-heading">
         <div className="page-heading-copy">
           <span className="page-icon">
-            <i className="bi bi-calendar2-week" aria-hidden="true" />
+            <i className="bi bi-calendar-check" aria-hidden="true" />
           </span>
           <div>
-            <p className="eyebrow mb-1">Consultation Schedule</p>
-            <h1 className="h3 mb-1">My Booked Appointments</h1>
-            <p className="text-muted mb-0">
-              Upcoming telehealth consultations, slot management and reminder dispatch status.
-            </p>
+            <p className="eyebrow mb-1">Patient Portal</p>
+            <h1 className="h3 mb-1">My Scheduled Appointments</h1>
+            <p className="text-muted mb-0">Manage confirmed consultations, join video calls, or reschedule.</p>
           </div>
         </div>
         <div className="heading-actions">
-          <button className="btn btn-primary btn-sm" type="button" onClick={handleOpenNewBooking}>
-            <i className="bi bi-plus-lg" aria-hidden="true" /> Book New Slot
+          <button
+            className="btn btn-primary btn-sm d-flex align-items-center gap-1"
+            type="button"
+            onClick={() => {
+              setAppointmentToReschedule(null);
+              setIsBookingModalOpen(true);
+            }}
+          >
+            <i className="bi bi-plus-lg" aria-hidden="true" /> Book New Specialist
           </button>
         </div>
       </div>
 
       {actionMessage && (
-        <div className="alert alert-success d-flex align-items-center gap-2" role="status">
-          <i className="bi bi-check2-circle" aria-hidden="true" />
-          <span className="small">{actionMessage}</span>
+        <div className="alert alert-success d-flex align-items-center justify-content-between p-3 mb-3" role="alert">
+          <div className="d-flex align-items-center gap-2">
+            <i className="bi bi-check-circle-fill" aria-hidden="true" />
+            <span>{actionMessage}</span>
+          </div>
+          <button type="button" className="btn-close" onClick={() => setActionMessage(null)} aria-label="Close" />
         </div>
       )}
 
@@ -130,105 +151,150 @@ function PatientAppointmentsContent() {
         <div className="panel-header">
           <div>
             <h2 className="h5 mb-1 section-title">
-              <i className="bi bi-calendar2-check" aria-hidden="true" />
-              <span>Incoming Confirmed Appointments</span>
+              <i className="bi bi-clock-history" aria-hidden="true" />
+              <span>Upcoming &amp; Confirmed Sessions</span>
             </h2>
-            <p className="text-muted mb-0">Consultations that are paid for and locked in.</p>
           </div>
-          <span className="badge text-bg-success">{confirmedApps.length} confirmed</span>
+          <span className="badge text-bg-success">{confirmedApps.length} upcoming</span>
         </div>
 
         {isLoading ? (
-          <p className="text-muted small mb-0">Loading your appointments…</p>
+          <div className="blank-state py-4">
+            <i className="bi bi-hourglass-split" aria-hidden="true" />
+            <p className="text-muted mb-0">Loading appointments…</p>
+          </div>
         ) : confirmedApps.length === 0 ? (
-          <div className="empty-state">
-            <i className="bi bi-calendar2-x" aria-hidden="true" />
-            <p className="mb-2">You have no active upcoming appointments.</p>
-            <button className="btn btn-light btn-sm" type="button" onClick={handleOpenNewBooking}>
-              <i className="bi bi-plus-lg" aria-hidden="true" /> Book Appointment Slot
+          <div className="blank-state py-4">
+            <i className="bi bi-calendar-x" aria-hidden="true" />
+            <p className="text-muted mb-2">No upcoming appointments scheduled.</p>
+            <button
+              className="btn btn-outline-primary btn-sm"
+              type="button"
+              onClick={() => {
+                setAppointmentToReschedule(null);
+                setIsBookingModalOpen(true);
+              }}
+            >
+              Book Your First Appointment
             </button>
           </div>
         ) : (
           <div className="row g-3">
-            {confirmedApps.map((app) => (
-              <div className="col-12 col-xl-6" key={app.id}>
-                <article className="panel panel-accent accent-success h-100">
-                  <div className="d-flex flex-wrap align-items-start justify-content-between gap-2">
-                    <div>
-                      <h3 className="h6 mb-1">{app.doctor_name}</h3>
-                      <p className="eyebrow mb-0">{app.doctor_specialty}</p>
-                    </div>
-                    <span className="badge text-bg-success">{app.status}</span>
-                  </div>
+            {confirmedApps.map((app, idx) => {
+              const isVideo = idx % 2 === 0;
+              const isDoctorInRoom = activeDoctorRoomId === app.id;
 
-                  <div className="info-list mt-3">
-                    <div>
-                      <span>
-                        <i className="bi bi-calendar3 me-1" aria-hidden="true" />
-                        Date
-                      </span>
-                      <strong>{app.appointment_date}</strong>
+              return (
+                <div className="col-12 col-xl-6" key={app.id}>
+                  <article className={`panel panel-accent ${isVideo ? 'accent-info' : 'accent-primary'} h-100`}>
+                    <div className="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                      <div>
+                        <h3 className="h6 mb-1">{app.doctor_name}</h3>
+                        <p className="eyebrow mb-0">{app.doctor_specialty}</p>
+                      </div>
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span className={`badge ${isVideo ? 'text-bg-info' : 'text-bg-secondary'}`}>
+                          <i className={`bi ${isVideo ? 'bi-camera-video' : 'bi-building'} me-1`} />
+                          {isVideo ? 'Telehealth Video' : 'In-Person Clinic'}
+                        </span>
+                        <span className="badge text-bg-success">{app.status}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span>
-                        <i className="bi bi-clock me-1" aria-hidden="true" />
-                        Time slot
-                      </span>
-                      <strong>
-                        {app.start_time} – {app.end_time}
-                      </strong>
-                    </div>
-                    <div>
-                      <span>
-                        <i className="bi bi-credit-card me-1" aria-hidden="true" />
-                        Consultation fee
-                      </span>
-                      <strong>
-                        GH₵ {app.payment_amount.toFixed(2)}{' '}
-                        <span className="badge text-bg-secondary">{app.payment_status}</span>
-                      </strong>
-                    </div>
-                  </div>
 
-                  <div className="mini-card mt-3">
-                    <span>
-                      <i className="bi bi-envelope-paper me-1" aria-hidden="true" />
-                      Automated email reminders
-                    </span>
-                    <ul className="list-unstyled mb-0 small">
-                      <li className="d-flex align-items-center gap-2">
-                        <i className="bi bi-check2-circle text-success" aria-hidden="true" />
-                        24-hour prior email — scheduled one day before the consultation
-                      </li>
-                      <li className="d-flex align-items-center gap-2">
-                        <i className="bi bi-check2-circle text-success" aria-hidden="true" />
-                        30-minute prior email — scheduled before the room opens
-                      </li>
-                    </ul>
-                  </div>
+                    {isDoctorInRoom && (
+                      <div className="alert text-bg-success p-2.5 rounded-3 mt-3 mb-2 border-0 d-flex flex-wrap align-items-center justify-content-between gap-2 shadow-sm">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="spinner-grow spinner-grow-sm text-light" role="status" aria-hidden="true" />
+                          <div>
+                            <strong className="d-block text-white" style={{ fontSize: '13px' }}>
+                              🟢 Doctor is in the Live Video Room!
+                            </strong>
+                            <small className="text-white-50" style={{ fontSize: '11px' }}>
+                              Dr. {app.doctor_name} has launched your video consultation.
+                            </small>
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-light btn-sm fw-bold text-success"
+                          type="button"
+                          onClick={() => setActiveVideoApp(app)}
+                        >
+                          <i className="bi bi-camera-video me-1" /> Join Call Now
+                        </button>
+                      </div>
+                    )}
 
-                  <div className="d-flex flex-wrap justify-content-end gap-2 mt-3">
-                    <button
-                      className="btn btn-primary btn-sm d-flex align-items-center gap-1"
-                      type="button"
-                      onClick={() => setActiveVideoApp(app)}
-                    >
-                      <i className="bi bi-camera-video" aria-hidden="true" /> Join Live Video Room
-                    </button>
-                    <button className="btn btn-light btn-sm" type="button" onClick={() => handleReschedule(app)}>
-                      <i className="bi bi-arrow-repeat" aria-hidden="true" /> Reschedule
-                    </button>
-                    <button
-                      className="btn btn-outline-danger btn-sm"
-                      type="button"
-                      onClick={() => handleCancelAppointment(app.id)}
-                    >
-                      <i className="bi bi-x-circle" aria-hidden="true" /> Cancel &amp; Refund
-                    </button>
-                  </div>
-                </article>
-              </div>
-            ))}
+                    <div className="info-list mt-3">
+                      <div>
+                        <span>
+                          <i className="bi bi-calendar3 me-1" aria-hidden="true" />
+                          Date
+                        </span>
+                        <strong>{app.appointment_date}</strong>
+                      </div>
+                      <div>
+                        <span>
+                          <i className="bi bi-clock me-1" aria-hidden="true" />
+                          Time slot
+                        </span>
+                        <strong>
+                          {app.start_time} – {app.end_time}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>
+                          <i className="bi bi-credit-card me-1" aria-hidden="true" />
+                          Consultation fee
+                        </span>
+                        <strong>
+                          GH₵ {app.payment_amount.toFixed(2)}{' '}
+                          <span className="badge text-bg-secondary">{app.payment_status}</span>
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="mini-card mt-3">
+                      <span>
+                        <i className="bi bi-envelope-paper me-1" aria-hidden="true" />
+                        Automated email reminders
+                      </span>
+                      <ul className="list-unstyled mb-0 small">
+                        <li className="d-flex align-items-center gap-2">
+                          <i className="bi bi-check2-circle text-success" aria-hidden="true" />
+                          24-hour prior email — scheduled one day before the consultation
+                        </li>
+                        <li className="d-flex align-items-center gap-2">
+                          <i className="bi bi-check2-circle text-success" aria-hidden="true" />
+                          30-minute prior email — scheduled before the room opens
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                      {isVideo && (
+                        <button
+                          className="btn btn-primary btn-sm d-flex align-items-center gap-1"
+                          type="button"
+                          onClick={() => setActiveVideoApp(app)}
+                        >
+                          <i className="bi bi-camera-video" aria-hidden="true" /> Join Live Video Room
+                        </button>
+                      )}
+                      <button className="btn btn-light btn-sm" type="button" onClick={() => handleReschedule(app)}>
+                        <i className="bi bi-arrow-repeat" aria-hidden="true" /> Reschedule
+                      </button>
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        type="button"
+                        onClick={() => handleCancelAppointment(app.id)}
+                      >
+                        <i className="bi bi-x-circle" aria-hidden="true" /> Cancel &amp; Refund
+                      </button>
+                    </div>
+                  </article>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

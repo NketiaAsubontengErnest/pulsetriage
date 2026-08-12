@@ -1,0 +1,41 @@
+=============================================================================
+CSCD 602 ADVANCED SOFTWARE ENGINEERING CAPSTONE EXAMINATION
+PART C: DEPLOYMENT AND SOURCE LINKS
+=============================================================================
+
+Student Name: [Your Name]
+Student ID: [Your Student ID]
+Project Title: Telehealth Appointment & Urgency Auto-Triage System (PulseTriage)
+
+-----------------------------------------------------------------------------
+LIVE DEPLOYMENT LINKS
+-----------------------------------------------------------------------------
+Live Application URL: https://telehealth-triage-system.vercel.app
+Admin URL: https://telehealth-triage-system.vercel.app/admin
+
+-----------------------------------------------------------------------------
+TEST DEMO CREDENTIALS
+-----------------------------------------------------------------------------
+Patient Portal:
+  Test Username: patient@ug.edu.gh
+  Test Password: PatientPass2026!
+
+Doctor Workspace:
+  Test Username: dr.mensah@ug.edu.gh
+  Test Password: DoctorPass2026!
+
+Admin Dashboard:
+  Admin Username: admin@ug.edu.gh
+  Admin Password: AdminPass2026!
+
+-----------------------------------------------------------------------------
+SOURCE CODE REPOSITORY
+-----------------------------------------------------------------------------
+Source Code Repository: https://github.com/your-username/telehealth-triage-system
+
+-----------------------------------------------------------------------------
+DATABASE BACKEND
+-----------------------------------------------------------------------------
+Database Platform: Supabase Cloud PostgreSQL
+Database Schema SQL: ./supabase/schema.sql
+=============================================================================

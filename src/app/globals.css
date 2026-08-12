@@ -1,0 +1,863 @@
+/* ==========================================================================
+   PulseTriage — application layer on top of the adminHMD template.
+   Bootstrap 5, bootstrap-icons and the template's style.css are linked from
+   /public/assets in src/app/layout.tsx. Everything below is app-specific:
+   shell variants the template does not ship, plus clinical urgency styling.
+   ========================================================================== */
+
+/* --- Shell variants ------------------------------------------------------ */
+
+/* Public pages render without the sidebar, so the main column must not be
+   offset by the sidebar width the template reserves by default. */
+.admin-shell.shell-public .admin-main {
+  margin-left: 0;
+}
+
+/* Keep the public navbar's brand + links from colliding on small screens. */
+.public-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.public-nav a {
+  color: var(--admin-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.public-nav a:hover,
+.public-nav a:focus,
+.public-nav a.active {
+  color: var(--admin-primary);
+}
+
+/* Bootstrap positions dropdowns with Popper, which we do not load — the menus
+   are opened from React state instead, so anchor them by hand. */
+.menu-anchored {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  left: auto;
+}
+
+/* --- Overlays ------------------------------------------------------------
+   Bootstrap's .modal also depends on its JS bundle, so dialogs use this
+   lightweight equivalent and inherit the template's .panel surface. */
+.app-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  display: grid;
+  place-items: start center;
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.app-modal {
+  width: min(100%, 560px);
+  margin: auto;
+}
+
+.app-modal-lg {
+  width: min(100%, 960px);
+}
+
+/* ==========================================================================
+   PUBLIC MARKETING PAGES
+   Home / About / Features / Doctors / Contact present the product rather than
+   operate it, so they get a wider rhythm than the admin panels — while still
+   drawing every colour, radius and shadow from the template's tokens.
+   ========================================================================== */
+
+/* --- Hero ---------------------------------------------------------------- */
+
+.public-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(15, 118, 110, 0.08) 55%, transparent 80%),
+    var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+}
+
+/* Two soft colour blooms, clipped by the hero's own overflow. */
+.public-hero::before,
+.public-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.public-hero::before {
+  inset: -45% -15% auto auto;
+  width: min(520px, 62%);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.2), transparent 66%);
+}
+
+.public-hero::after {
+  inset: auto auto -55% -12%;
+  width: min(420px, 52%);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 66%);
+}
+
+.hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: center;
+}
+
+@media (min-width: 992px) {
+  .hero-grid.hero-split {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
+.hero-title {
+  margin-bottom: 0.75rem;
+  font-size: clamp(1.85rem, 3.6vw, 2.9rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.hero-title .accent {
+  background: linear-gradient(120deg, var(--admin-primary), var(--admin-success));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-lead {
+  max-width: 58ch;
+  margin-bottom: 1.5rem;
+  color: var(--admin-muted);
+  font-size: clamp(0.95rem, 1.3vw, 1.06rem);
+  line-height: 1.65;
+}
+
+.hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.5rem;
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.hero-points span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hero-points i {
+  color: var(--admin-success);
+}
+
+/* Product preview card that sits beside the hero copy. */
+.hero-preview {
+  padding: 1.15rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+}
+
+.hero-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.hero-preview-dots {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.hero-preview-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--admin-border);
+}
+
+.hero-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+  font-size: 0.85rem;
+}
+
+.hero-preview-row + .hero-preview-row {
+  margin-top: 0.5rem;
+}
+
+.hero-preview-row span {
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+/* --- Section headings ---------------------------------------------------- */
+
+.section-head {
+  max-width: 64ch;
+  margin-bottom: 1.5rem;
+}
+
+.section-head.center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.section-head h2 {
+  margin-bottom: 0.5rem;
+  font-weight: 800;
+}
+
+.section-head p {
+  margin-bottom: 0;
+  color: var(--admin-muted);
+}
+
+/* --- Stat band ----------------------------------------------------------- */
+
+.stat-band {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-border);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+@media (min-width: 768px) {
+  .stat-band {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.stat-band div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1.35rem 1rem;
+  background: var(--admin-surface);
+  text-align: center;
+}
+
+.stat-band strong {
+  color: var(--admin-primary);
+  font-size: clamp(1.6rem, 2.6vw, 2.05rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-band span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* --- Feature tiles ------------------------------------------------------- */
+
+.feature-tile {
+  height: 100%;
+  padding: 1.35rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.feature-tile:hover {
+  border-color: #c6d5e8;
+  box-shadow: var(--admin-shadow-lg);
+  transform: translateY(-3px);
+}
+
+.feature-tile h3 {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.feature-tile p {
+  margin-bottom: 0;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Anchor tiles keep the body text colour rather than Bootstrap's link blue. */
+a.feature-tile,
+a.feature-tile:hover,
+a.feature-tile:focus {
+  display: block;
+  color: var(--admin-text);
+}
+
+/* --- Numbered step flow -------------------------------------------------- */
+
+.step-flow {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .step-flow {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.step-item {
+  position: relative;
+  height: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+}
+
+/* Connector between steps on wide screens only. */
+@media (min-width: 768px) {
+  .step-item:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 2.1rem;
+    right: -1rem;
+    width: 1rem;
+    height: 2px;
+    background: var(--admin-border);
+  }
+}
+
+.step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 0.85rem;
+  border-radius: 8px;
+  background: var(--admin-primary);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.step-item h3 {
+  margin-bottom: 0.35rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.step-item p {
+  margin-bottom: 0;
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* --- Comparison lists ---------------------------------------------------- */
+
+.compare-list {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.compare-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: var(--admin-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.compare-list i {
+  margin-top: 0.2rem;
+  flex: 0 0 auto;
+}
+
+/* --- Timeline ------------------------------------------------------------ */
+
+.timeline {
+  display: grid;
+  gap: 0;
+  padding-left: 0.5rem;
+  margin: 0;
+  list-style: none;
+}
+
+.timeline li {
+  position: relative;
+  padding: 0 0 1.5rem 1.85rem;
+  border-left: 2px solid var(--admin-border);
+}
+
+.timeline li:last-child {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+
+.timeline li::before {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  left: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--admin-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+.timeline strong {
+  display: block;
+  font-size: 0.98rem;
+}
+
+.timeline span {
+  color: var(--admin-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* --- Quote --------------------------------------------------------------- */
+
+.quote-card {
+  height: 100%;
+  padding: 1.5rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.quote-card blockquote {
+  margin: 0 0 1rem;
+  color: var(--admin-text);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+.quote-card footer {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
+/* --- Call-to-action band ------------------------------------------------- */
+
+.cta-band {
+  padding: clamp(1.6rem, 3.5vw, 2.6rem);
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--admin-primary), var(--admin-success));
+  color: #ffffff;
+  text-align: center;
+  box-shadow: var(--admin-shadow);
+}
+
+.cta-band h2 {
+  margin-bottom: 0.5rem;
+  font-weight: 800;
+}
+
+.cta-band p {
+  max-width: 56ch;
+  margin: 0 auto 1.5rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.cta-band .btn-light {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: var(--admin-primary-dark);
+}
+
+.cta-band .btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #ffffff;
+}
+
+.cta-band .btn-outline-light:hover,
+.cta-band .btn-outline-light:focus {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/* --- FAQ ----------------------------------------------------------------- */
+
+.faq-item {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  overflow: hidden;
+}
+
+.faq-item + .faq-item {
+  margin-top: 0.65rem;
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font-weight: 700;
+  text-align: left;
+}
+
+.faq-question:hover,
+.faq-question:focus {
+  background: var(--admin-surface-soft);
+}
+
+.faq-question i {
+  flex: 0 0 auto;
+  color: var(--admin-primary);
+  transition: transform 0.18s ease;
+}
+
+.faq-question[aria-expanded='true'] i {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  padding: 0 1.15rem 1.15rem;
+  color: var(--admin-muted);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+/* --- Contact tiles ------------------------------------------------------- */
+
+.contact-tile {
+  display: grid;
+  gap: 0.3rem;
+  height: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+}
+
+.contact-tile strong {
+  font-size: 0.98rem;
+}
+
+.contact-tile span,
+.contact-tile a {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+/* --- Directory filter chips ---------------------------------------------- */
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.filter-chip {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.filter-chip:hover,
+.filter-chip:focus {
+  border-color: #93c5fd;
+  color: var(--admin-text);
+}
+
+.filter-chip.active {
+  border-color: var(--admin-primary);
+  background: var(--admin-primary);
+  color: #ffffff;
+}
+
+/* Vertical rhythm between public page sections. */
+.public-section {
+  margin-top: clamp(1.75rem, 4vw, 3rem);
+}
+
+/* --- Clinical urgency badges --------------------------------------------- */
+
+.urgency-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.urgency-emergency {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.32);
+}
+
+.urgency-urgent {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+  box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.32);
+}
+
+.urgency-semi_urgent {
+  background: rgba(202, 138, 4, 0.12);
+  color: #a16207;
+  box-shadow: inset 0 0 0 1px rgba(202, 138, 4, 0.3);
+}
+
+.urgency-routine {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.3);
+}
+
+html[data-theme="dark"] .urgency-emergency {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
+html[data-theme="dark"] .urgency-urgent {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .urgency-semi_urgent {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fef08a;
+}
+
+html[data-theme="dark"] .urgency-routine {
+  background: rgba(45, 212, 191, 0.16);
+  color: #99f6e4;
+}
+
+/* Left accent rail on a panel, matching .metric-card's treatment. */
+.panel-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--accent-color, var(--admin-primary));
+}
+
+.accent-danger {
+  --accent-color: var(--admin-danger);
+}
+
+.accent-warning {
+  --accent-color: var(--admin-warning);
+}
+
+.accent-success {
+  --accent-color: var(--admin-success);
+}
+
+/* --- Triage wizard ------------------------------------------------------- */
+
+/* Large tap targets for symptom / duration / red-flag selection. */
+.choice-tile {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  text-align: left;
+  font-weight: 700;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.choice-tile:hover,
+.choice-tile:focus {
+  border-color: #93c5fd;
+  box-shadow: var(--admin-ring);
+}
+
+.choice-tile.selected {
+  border-color: var(--admin-primary);
+  background: #eaf2ff;
+  color: var(--admin-primary-dark);
+}
+
+html[data-theme="dark"] .choice-tile.selected {
+  background: #1e3a5f;
+  color: #bfdbfe;
+}
+
+.choice-tile.selected-danger {
+  border-color: var(--admin-danger);
+  background: rgba(220, 38, 38, 0.09);
+  color: #b91c1c;
+}
+
+html[data-theme="dark"] .choice-tile.selected-danger {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+}
+
+.choice-tile small {
+  display: block;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.score-dial {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.score-dial small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+}
+
+/* --- Misc ---------------------------------------------------------------- */
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--admin-muted);
+}
+
+.empty-state i {
+  font-size: 1.75rem;
+  color: var(--admin-primary);
+}
+
+.avatar-initials {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: #eaf2ff;
+  color: var(--admin-primary-dark);
+  font-weight: 800;
+}
+
+html[data-theme="dark"] .avatar-initials {
+  background: #1e3a5f;
+  color: #bfdbfe;
+}
+
+.stat-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.stat-inline div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.stat-inline span {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.stat-inline strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Scrollbars, tuned to the template palette. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--admin-border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-primary);
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next *)",
+      "Bash(npx --yes kill-port 3111)",
+      "PowerShell(if \\($?\\) { \"typecheck OK\" })",
+      "Bash(npx --yes kill-port 3112)",
+      "Bash(echo \"--- exit: $? \\(no output above = no other provider\\)\")",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(echo \"exit:$?\")"
+    ]
+  }
+}

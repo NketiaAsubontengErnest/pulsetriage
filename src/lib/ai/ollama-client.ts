@@ -1,6 +1,6 @@
 import { Ollama } from 'ollama';
 
-// Configure Ollama client instance
+// Configure Ollama client instance & environment keys
 const apiKey = process.env.OLLAMA_API_KEY || 'a04ae336855243d2ac4215adc064dfc0.Og0czoZ8437jZPv9ZiuQ9jOW';
 const hostUrl = process.env.OLLAMA_HOST || undefined; // uses default or custom host
 
@@ -25,16 +25,59 @@ export async function queryOllama(
     temperature?: number;
   }
 ): Promise<string> {
+  const modelToUse = options?.model || DEFAULT_AI_MODEL;
+  const activeApiKey = process.env.OLLAMA_API_KEY || 'a04ae336855243d2ac4215adc064dfc0.Og0czoZ8437jZPv9ZiuQ9jOW';
+  const activeHost = process.env.OLLAMA_HOST || 'https://ollama.com';
+
+  // 1. On Vercel serverless, attempt direct HTTP fetch to Cloud AI Host Endpoint first
+  if (activeHost || activeApiKey) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for fast response
+
+      const targetEndpoint = activeHost.endsWith('/') ? `${activeHost}api/chat` : `${activeHost}/api/chat`;
+      const res = await fetch(targetEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(activeApiKey ? { Authorization: `Bearer ${activeApiKey}`, 'X-API-Key': activeApiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: messages,
+          stream: false,
+          ...(options?.jsonFormat ? { format: 'json' } : {}),
+          options: {
+            ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.message?.content) {
+          return data.message.content;
+        }
+      }
+    } catch (e) {
+      console.warn('[CLOUD LLM FETCH NOTICE] Cloud endpoint fetch failed or timed out. Trying SDK fallback...');
+    }
+  }
+
+  // 2. Fallback to Ollama SDK instance
   const modelsToTry = Array.from(
-    new Set([options?.model || DEFAULT_AI_MODEL, ...FALLBACK_MODELS])
+    new Set([modelToUse, ...FALLBACK_MODELS])
   );
 
   let lastError: any = null;
 
-  for (const modelToUse of modelsToTry) {
+  for (const currentModel of modelsToTry) {
     try {
       const response = await ollamaClient.chat({
-        model: modelToUse,
+        model: currentModel,
         messages: messages,
         ...(options?.jsonFormat ? { format: 'json' } : {}),
         options: {
@@ -46,15 +89,12 @@ export async function queryOllama(
     } catch (error: any) {
       lastError = error;
       const errorMsg = error?.message || error?.error || '';
-      
-      // If error indicates paid plan required (403), try next model silently
+
       if (errorMsg.includes('requires both a Pro') || errorMsg.includes('upgrade for access') || error?.status_code === 403) {
-        console.warn(`[OLLAMA MODEL NOTICE] Model '${modelToUse}' requires upgraded cloud plan. Trying fallback model...`);
+        console.warn(`[OLLAMA MODEL NOTICE] Model '${currentModel}' requires upgraded cloud plan. Trying fallback...`);
         continue;
       }
-      
-      // For other errors, try fallback model as well
-      console.warn(`[OLLAMA MODEL RETRY] Failed with model '${modelToUse}'. Retrying next model...`);
+      console.warn(`[OLLAMA MODEL RETRY] Failed with model '${currentModel}'. Retrying next model...`);
     }
   }
 
@@ -65,7 +105,7 @@ export async function queryOllama(
 /**
  * Safely query Ollama expecting a JSON response object.
  * Extracts and parses JSON even if wrapped in markdown code blocks.
- * Returns structured fallback if Ollama cloud model requires subscription.
+ * Returns structured fallback if Ollama cloud model is unreachable.
  */
 export async function queryOllamaJson<T>(
   messages: ChatMessage[],
@@ -78,7 +118,6 @@ export async function queryOllamaJson<T>(
       jsonFormat: true,
     });
 
-    // Clean code fences if present
     const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
     return JSON.parse(cleaned) as T;
   } catch (err) {

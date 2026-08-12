@@ -560,21 +560,21 @@ Each requirement is traced to its implementing artefact and its verifying test c
 | FR-1.1 – FR-1.3 | `src/app/api/auth/register/route.ts` | TC-INT-01, TC-SEC-03 |
 | FR-1.4 – FR-1.6 | `src/app/api/auth/login/route.ts`, `src/lib/auth-context.tsx` | TC-INT-02, TC-SYS-01 |
 | FR-2.1 | `src/components/triage/triage-wizard.tsx` | TC-SYS-02, TC-UAT-01 |
-| FR-2.2 – FR-2.5, FR-2.11 | `src/lib/triage-engine.ts` → `evaluateSymptomTriage` | TC-UNIT-01 … TC-UNIT-07 |
-| FR-2.6 | `src/lib/triage-engine.ts` (red-flag short-circuit) | TC-UNIT-01, TC-SYS-03 |
-| FR-2.7, FR-2.8 | `SYMPTOM_SPECIALTY_MAP`, rule `recommended_specialty` | TC-UNIT-05, TC-INT-04 |
-| FR-2.9 | `src/app/api/triage/route.ts` | TC-INT-03 |
-| FR-2.10, FR-2.12 | `INITIAL_TRIAGE_RULES`, `src/app/admin/rules/page.tsx` | TC-SYS-08 |
-| FR-2.14 | `src/lib/ai/ai-services.ts` → `analyzeSymptomTriageAI` | TC-UNIT-08, TC-INT-11 |
+| FR-2.2 – FR-2.5, FR-2.11 | `src/lib/triage-engine.ts` → `evaluateSymptomTriage` | TC-UNIT-04 … TC-UNIT-07, TC-UNIT-17 … TC-UNIT-19 |
+| FR-2.6 | `src/lib/triage-engine.ts` (red-flag short-circuit) | TC-UNIT-01, TC-UNIT-02, TC-UNIT-03, TC-SYS-03 |
+| FR-2.7, FR-2.8 | `SYMPTOM_SPECIALTY_MAP`, rule `recommended_specialty` | TC-UNIT-09, TC-INT-04 |
+| FR-2.9 | `src/app/api/triage/route.ts` | TC-INT-03, TC-UNIT-11 |
+| FR-2.10, FR-2.12 | `INITIAL_TRIAGE_RULES`, `src/app/admin/rules/page.tsx` | TC-UNIT-08, TC-SYS-08 |
+| FR-2.14 | `src/lib/ai/ai-services.ts` → `analyzeSymptomTriageAI` | TC-UNIT-13, TC-INT-11 |
 | FR-3.1 – FR-3.2 | `src/app/api/doctors/route.ts`, `src/app/doctors/page.tsx` | TC-INT-05 |
 | FR-3.3 – FR-3.7 | `prisma/schema.prisma`, `src/components/booking/doctor-booking-modal.tsx` | TC-INT-06, TC-SYS-04 |
 | FR-3.11 | `src/app/api/appointments/route.ts` | TC-INT-08 |
 | FR-4.1 – FR-4.4 | `src/app/patient`, `src/app/doctor`, `src/app/admin`, `src/components/auth/auth-guard.tsx` | TC-SYS-05, TC-SYS-06, TC-SYS-07 |
 | FR-4.5, FR-4.6 | *Not implemented* | TC-SEC-01 **(failed — defect D-01)** |
-| FR-5.1 – FR-5.7 | `src/lib/simulated-payment.ts`, `src/app/api/payments/route.ts` | TC-INT-09, TC-INT-10, TC-UNIT-09 |
+| FR-5.1 – FR-5.7 | `src/lib/simulated-payment.ts`, `src/app/api/payments/route.ts` | TC-INT-09, TC-INT-10 |
 | FR-6.1 – FR-6.3 | `src/lib/notifications.ts`, `src/app/api/notifications/route.ts` | TC-INT-08 |
-| FR-7.1 – FR-7.3 | `src/components/video/telehealth-video-room.tsx`, `src/app/room/[appointmentId]/page.tsx` | TC-UNIT-10 … TC-UNIT-12, TC-SYS-09 |
-| FR-7.4, FR-7.5 | `src/app/api/appointments/[id]/route.ts`, `src/components/doctor/ai-doctor-tools.tsx` | TC-INT-12, TC-SYS-10 |
+| FR-7.1 – FR-7.3 | `src/components/video/telehealth-video-room.tsx`, `src/app/room/[appointmentId]/page.tsx` | TC-UNIT-20 … TC-UNIT-22, TC-SYS-09 |
+| FR-7.4, FR-7.5 | `src/app/api/appointments/[id]/route.ts`, `src/components/doctor/ai-doctor-tools.tsx` | TC-UNIT-21, TC-INT-12 |
 | FR-8.1 – FR-8.5 | `src/app/api/audit/route.ts`, `src/app/admin/**` | TC-INT-13, TC-SYS-11 |
 | FR-9.1 – FR-9.5 | All route handlers, `src/app/not-found.tsx` | TC-SEC-04, TC-SYS-12 |
 | NFR-1 | `src/lib/triage-engine.ts` | TC-PERF-01 |
@@ -585,7 +585,9 @@ Each requirement is traced to its implementing artefact and its verifying test c
 | NFR-8 | `audit_logs` writes across routes | TC-INT-13 |
 | NFR-9 | End-to-end patient journey | TC-UAT-01 |
 | NFR-12 | TypeScript strict build, Prisma-generated types | TC-SYS-13 |
-| NFR-16 | Deterministic simulators | TC-UNIT-09 |
+| NFR-16 | Deterministic simulators and a pure rule engine | TC-UNIT-12, TC-INT-10 |
+| NFR-17 | *Not assessed* | — **(debt TD-09)** |
+| NFR-18 | Safety disclaimer in the interface | TC-UAT-02 |
 
 ---
 

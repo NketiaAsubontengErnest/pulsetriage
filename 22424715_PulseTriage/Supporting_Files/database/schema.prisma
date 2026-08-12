@@ -1,0 +1,168 @@
+// PulseTriage — Prisma v5 Schema (SQLite)
+// Run: npx prisma db push  then  npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users (Patients, Doctors, Admins) ───────────────────────────────────────
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String   // bcrypt hashed
+  full_name  String
+  role       String   // 'PATIENT' | 'DOCTOR' | 'ADMIN'
+  phone      String?
+  avatar_url String?
+  created_at DateTime @default(now())
+
+  // Relations
+  doctor        Doctor?
+  appointments  Appointment[]  @relation("PatientAppointments")
+  triages       TriageAssessment[]
+  notifications Notification[]
+  payments      PaymentLog[]
+
+  @@map("users")
+}
+
+// ─── Doctors ─────────────────────────────────────────────────────────────────
+model Doctor {
+  id               String  @id @default(cuid())
+  user_id          String  @unique
+  specialization   String
+  license_number   String  @unique
+  bio              String
+  consultation_fee Float
+  is_verified      Boolean @default(false)
+  rating           Float   @default(0.0)
+  avatar_url       String?
+
+  // Relations
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  appointments Appointment[] @relation("DoctorAppointments")
+  schedules    DoctorSchedule[]
+
+  @@map("doctors")
+}
+
+// ─── Doctor Schedules ─────────────────────────────────────────────────────────
+model DoctorSchedule {
+  id                String  @id @default(cuid())
+  doctor_id         String
+  day_of_week       Int     // 0 = Sunday, 6 = Saturday
+  start_time        String  // "09:00"
+  end_time          String  // "17:00"
+  slot_duration_mins Int    @default(30)
+  is_active         Boolean @default(true)
+
+  doctor Doctor @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+
+  @@map("doctor_schedules")
+}
+
+// ─── Triage Assessments ───────────────────────────────────────────────────────
+model TriageAssessment {
+  id                   String   @id @default(cuid())
+  patient_id           String
+  primary_symptom      String
+  symptom_duration     String
+  pain_score           Int
+  red_flag_present     Boolean  @default(false)
+  red_flags_json       String   @default("[]") // JSON array stored as string
+  severity_score       Int
+  urgency_level        String   // 'EMERGENCY' | 'URGENT' | 'SEMI_URGENT' | 'ROUTINE'
+  recommended_specialty String
+  triage_summary       String
+  action_recommendation String
+  created_at           DateTime @default(now())
+
+  patient      User          @relation(fields: [patient_id], references: [id])
+  appointments Appointment[]
+
+  @@map("triage_assessments")
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+model Appointment {
+  id               String   @id @default(cuid())
+  patient_id       String
+  doctor_id        String
+  triage_id        String?
+  appointment_date String   // "YYYY-MM-DD"
+  start_time       String   // "HH:MM"
+  end_time         String   // "HH:MM"
+  status           String   @default("PENDING_PAYMENT") // 'PENDING_PAYMENT'|'CONFIRMED'|'CANCELLED'|'COMPLETED'
+  payment_status   String   @default("PENDING")         // 'PENDING'|'SIMULATED_SUCCESS'|'FAILED'
+  payment_amount   Float
+  notes            String?
+  reason           String?
+  created_at       DateTime @default(now())
+
+  patient  User             @relation("PatientAppointments", fields: [patient_id], references: [id])
+  doctor   Doctor           @relation("DoctorAppointments", fields: [doctor_id], references: [id])
+  triage   TriageAssessment? @relation(fields: [triage_id], references: [id])
+  payments PaymentLog[]
+
+  @@map("appointments")
+}
+
+// ─── Payment Logs ─────────────────────────────────────────────────────────────
+model PaymentLog {
+  id              String   @id @default(cuid())
+  appointment_id  String
+  patient_id      String
+  transaction_ref String   @unique
+  amount          Float
+  payment_method  String   // 'MOBILE_MONEY' | 'CREDIT_CARD' | 'HEALTH_INSURANCE'
+  provider        String
+  status          String   @default("SUCCESS") // 'SUCCESS' | 'DECLINED'
+  created_at      DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointment_id], references: [id])
+  patient     User        @relation(fields: [patient_id], references: [id])
+
+  @@map("payment_logs")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+model Notification {
+  id         String   @id @default(cuid())
+  user_id    String
+  title      String
+  message    String
+  type       String   // 'TRIAGE' | 'APPOINTMENT' | 'PAYMENT' | 'SYSTEM'
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("notifications")
+}
+
+// ─── Specializations ─────────────────────────────────────────────────────────
+model Specialization {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+
+  @@map("specializations")
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+model AuditLog {
+  id         String   @id @default(cuid())
+  actor      String   // user email or "SYSTEM"
+  action     String   // e.g. "DOCTOR_ADDED", "APPOINTMENT_CREATED"
+  entity     String   // e.g. "Doctor", "Appointment"
+  entity_id  String?
+  details    String?
+  created_at DateTime @default(now())
+
+  @@map("audit_logs")
+}

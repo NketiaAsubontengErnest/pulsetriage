@@ -1,0 +1,112 @@
+erDiagram
+  USERS ||--o| DOCTORS : "is a"
+  USERS ||--o{ APPOINTMENTS : "books as patient"
+  USERS ||--o{ TRIAGE_ASSESSMENTS : "submits"
+  USERS ||--o{ NOTIFICATIONS : "receives"
+  USERS ||--o{ PAYMENT_LOGS : "pays"
+  DOCTORS ||--o{ DOCTOR_SCHEDULES : "defines"
+  DOCTORS ||--o{ APPOINTMENTS : "attends"
+  TRIAGE_ASSESSMENTS ||--o{ APPOINTMENTS : "prioritises"
+  APPOINTMENTS ||--o{ PAYMENT_LOGS : "settles"
+
+  USERS {
+    string id PK "cuid"
+    string email UK
+    string password "bcrypt hash, cost 10"
+    string full_name
+    string role "PATIENT|DOCTOR|ADMIN"
+    string phone
+    string avatar_url
+    datetime created_at
+  }
+
+  DOCTORS {
+    string id PK
+    string user_id FK,UK
+    string specialization
+    string license_number UK
+    string bio
+    float consultation_fee
+    boolean is_verified
+    float rating
+  }
+
+  DOCTOR_SCHEDULES {
+    string id PK
+    string doctor_id FK
+    int day_of_week "0=Sun .. 6=Sat"
+    string start_time "HH:MM"
+    string end_time "HH:MM"
+    int slot_duration_mins "default 30"
+    boolean is_active
+  }
+
+  TRIAGE_ASSESSMENTS {
+    string id PK
+    string patient_id FK
+    string primary_symptom
+    string symptom_duration
+    int pain_score "1-10"
+    boolean red_flag_present
+    string red_flags_json
+    int severity_score "0-100"
+    string urgency_level "EMERGENCY|URGENT|SEMI_URGENT|ROUTINE"
+    string recommended_specialty
+    string triage_summary
+    string action_recommendation
+    datetime created_at
+  }
+
+  APPOINTMENTS {
+    string id PK
+    string patient_id FK
+    string doctor_id FK
+    string triage_id FK "nullable"
+    string appointment_date "YYYY-MM-DD"
+    string start_time
+    string end_time
+    string status "PENDING_PAYMENT|CONFIRMED|CANCELLED|COMPLETED"
+    string payment_status "PENDING|SIMULATED_SUCCESS|FAILED"
+    float payment_amount
+    string notes
+    string reason
+    datetime created_at
+  }
+
+  PAYMENT_LOGS {
+    string id PK
+    string appointment_id FK
+    string patient_id FK
+    string transaction_ref UK "PAY-SIM-nnnnnn"
+    float amount
+    string payment_method "MOBILE_MONEY|CREDIT_CARD|HEALTH_INSURANCE"
+    string provider
+    string status "SUCCESS|DECLINED"
+    datetime created_at
+  }
+
+  NOTIFICATIONS {
+    string id PK
+    string user_id FK
+    string title
+    string message
+    string type "TRIAGE|APPOINTMENT|PAYMENT|SYSTEM"
+    boolean is_read
+    datetime created_at
+  }
+
+  SPECIALIZATIONS {
+    string id PK
+    string name UK
+    datetime created_at
+  }
+
+  AUDIT_LOGS {
+    string id PK
+    string actor "user id / email / SYSTEM"
+    string action
+    string entity
+    string entity_id
+    string details
+    datetime created_at
+  }

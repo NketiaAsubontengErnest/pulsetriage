@@ -1,0 +1,43 @@
+flowchart TB
+  subgraph DEV["Developer Workstation (Windows 11)"]
+    IDE["VS Code / Antigravity IDE<br/>TypeScript + Tailwind"]
+    NT["node --test<br/>10 unit tests"]
+    PRC["prisma generate / db push / db seed"]
+  end
+
+  subgraph GH["GitHub - NketiaAsubontengErnest/pulsetriage"]
+    REPO["main branch<br/>source of truth"]
+  end
+
+  subgraph VC["Vercel Production (Serverless, Global Edge)"]
+    BUILD["Build step:<br/>prisma generate && next build"]
+    STATIC["Static assets + RSC payloads<br/>served from Edge CDN"]
+    FUNC["Node.js Serverless Functions<br/>/api/* route handlers"]
+    ENVV["Environment variables<br/>DATABASE_URL, OLLAMA_API_KEY"]
+  end
+
+  subgraph CLOUD["Managed Cloud Backends"]
+    PG[("PostgreSQL - Neon / Supabase<br/>pooled connection over TLS")]
+    OLL["Ollama Cloud LLM API"]
+  end
+
+  BROWSER["End-user browser<br/>Chrome / Edge / Firefox / Safari<br/>desktop, tablet, mobile"]
+
+  IDE --> REPO
+  NT --> REPO
+  PRC --> PG
+  REPO -->|git push triggers CI/CD| BUILD
+  BUILD --> STATIC
+  BUILD --> FUNC
+  ENVV -.-> FUNC
+  BROWSER <-->|HTTPS| STATIC
+  BROWSER <-->|HTTPS / JSON| FUNC
+  FUNC <-->|Prisma over TLS| PG
+  FUNC <-->|HTTPS Bearer| OLL
+
+  classDef dev fill:#e0f2fe,stroke:#0369a1,color:#0f172a
+  classDef ci fill:#dcfce7,stroke:#15803d,color:#0f172a
+  classDef cloud fill:#ede9fe,stroke:#6d28d9,color:#0f172a
+  class IDE,NT,PRC dev
+  class REPO,BUILD,STATIC,FUNC,ENVV ci
+  class PG,OLL cloud

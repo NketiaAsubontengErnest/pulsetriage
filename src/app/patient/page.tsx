@@ -40,7 +40,7 @@ function PatientDashboardContent() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [triageHistory, setTriageHistory] = useState<TriageAssessment[]>([]);
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -56,8 +56,21 @@ function PatientDashboardContent() {
       .finally(() => setIsLoading(false));
   }, [user]);
 
-  const handleBookingSuccess = (newApp: Appointment) => {
-    setAppointments((list) => [newApp, ...list]);
+  const handleBookingSuccess = (newOrUpdatedApp: Appointment) => {
+    if (appointmentToReschedule) {
+      setAppointments((list) =>
+        list.map((a) => (a.id === newOrUpdatedApp.id ? newOrUpdatedApp : a))
+      );
+      setActionMessage(
+        `Appointment with ${newOrUpdatedApp.doctor_name} successfully rescheduled to ${newOrUpdatedApp.appointment_date} at ${newOrUpdatedApp.start_time}.`
+      );
+    } else {
+      setAppointments((list) => [newOrUpdatedApp, ...list]);
+      setActionMessage(`Appointment booked with ${newOrUpdatedApp.doctor_name} for ${newOrUpdatedApp.appointment_date}.`);
+    }
+    setAppointmentToReschedule(null);
+    setIsBookingModalOpen(false);
+    setTimeout(() => setActionMessage(null), 5000);
   };
 
   const handleCancelAppointment = async (appId: string) => {
@@ -73,10 +86,9 @@ function PatientDashboardContent() {
     setTimeout(() => setActionMessage(null), 4000);
   };
 
-  const handleRescheduleAppointment = () => {
+  const handleRescheduleAppointment = (app: Appointment) => {
+    setAppointmentToReschedule(app);
     setIsBookingModalOpen(true);
-    setActionMessage('Select a new appointment slot to reschedule your consultation.');
-    setTimeout(() => setActionMessage(null), 4000);
   };
 
   const confirmedCount = appointments.filter((a) => a.status === 'CONFIRMED').length;
@@ -279,7 +291,7 @@ function PatientDashboardContent() {
 
                     {app.status === 'CONFIRMED' && (
                       <div className="d-flex flex-wrap justify-content-end gap-2 mt-2">
-                        <button className="btn btn-light btn-sm" type="button" onClick={handleRescheduleAppointment}>
+                        <button className="btn btn-light btn-sm" type="button" onClick={() => handleRescheduleAppointment(app)}>
                           <i className="bi bi-arrow-repeat" aria-hidden="true" /> Reschedule
                         </button>
                         <button
@@ -300,10 +312,14 @@ function PatientDashboardContent() {
       </div>
 
       {isBookingModalOpen && (
-        <div className="app-modal-backdrop" role="dialog" aria-modal="true" aria-label="Book an appointment">
+        <div className="app-modal-backdrop" role="dialog" aria-modal="true" aria-label="Book or reschedule an appointment">
           <div className="app-modal app-modal-lg">
             <DoctorBookingModal
-              onClose={() => setIsBookingModalOpen(false)}
+              appointmentToReschedule={appointmentToReschedule}
+              onClose={() => {
+                setAppointmentToReschedule(null);
+                setIsBookingModalOpen(false);
+              }}
               onBookingSuccess={handleBookingSuccess}
             />
           </div>

@@ -1,0 +1,48 @@
+sequenceDiagram
+  autonumber
+  actor PT as Patient (Browser)
+  participant TW as TriageWizard (Client)
+  participant RE as triage-engine.ts
+  participant TAPI as POST /api/triage
+  participant BM as DoctorBookingModal
+  participant AAPI as POST /api/appointments
+  participant PAPI as POST /api/payments
+  participant SP as simulated-payment.ts
+  participant DB as Prisma / PostgreSQL
+
+  PT->>TW: Select symptom, duration, pain score, red flags
+  TW->>RE: evaluateSymptomTriage(input)
+  RE-->>TW: {severity_score, urgency_level, specialty, matched_rules}
+  alt Red flag present (EMERGENCY)
+    TW-->>PT: Emergency redirect banner - "Call 112 / go to nearest ER"
+    TW--xBM: Booking flow suppressed
+  else Non-emergency
+    TW->>TAPI: persist assessment
+    TAPI->>DB: INSERT triage_assessments
+    TAPI->>DB: INSERT notifications (TRIAGE)
+    TAPI->>DB: INSERT audit_logs (TRIAGE_SUBMITTED)
+    DB-->>TAPI: triage_id
+    TAPI-->>TW: 201 Created {triage}
+    TW-->>PT: Show urgency card + "Book recommended specialist"
+    PT->>BM: Choose doctor, date, 30-min slot
+    BM->>AAPI: {patient_id, doctor_id, triage_id, date, slot, amount}
+    AAPI->>DB: INSERT appointments (status=PENDING_PAYMENT)
+    AAPI->>DB: INSERT notifications (doctor alerted)
+    AAPI->>DB: INSERT audit_logs (APPOINTMENT_BOOKED)
+    DB-->>AAPI: appointment_id
+    AAPI-->>BM: 201 Created {appointment}
+    PT->>BM: Enter MoMo / card details, confirm payment
+    BM->>PAPI: {appointment_id, amount, method, account_number}
+    PAPI->>SP: processSimulatedPayment(request)
+    SP-->>PAPI: {success, transaction_ref: PAY-SIM-nnnnnn}
+    alt Payment authorised
+      PAPI->>DB: INSERT payment_logs (SUCCESS)
+      PAPI->>DB: UPDATE appointments SET status=CONFIRMED, payment_status=SIMULATED_SUCCESS
+      PAPI->>DB: INSERT notifications (PAYMENT receipt)
+      PAPI-->>BM: 200 OK {payment_log}
+      BM-->>PT: Confirmation receipt + appointment card
+    else Payment declined (account < 5 digits)
+      PAPI-->>BM: 402 {message: "Payment declined"}
+      BM-->>PT: Retry payment - appointment stays PENDING_PAYMENT
+    end
+  end

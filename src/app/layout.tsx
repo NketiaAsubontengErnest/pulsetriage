@@ -52,8 +52,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
 
-        {/* 24/7 AI Health Chat Widget */}
-        <AIAssistantWidget />
+        {/* 24/7 AI Health Chat Widget (Hidden on home page & auth routes) */}
+        {pathname !== '/' && !isAuthRoute && <AIAssistantWidget />}
       </div>
     </div>
   );

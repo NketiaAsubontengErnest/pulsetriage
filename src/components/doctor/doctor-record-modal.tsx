@@ -12,7 +12,7 @@ interface DoctorRecordModalProps {
 
 export function DoctorRecordModal({ appointment, onClose, onRecordSaved }: DoctorRecordModalProps) {
   const [subjective, setSubjective] = useState(
-    appointment.reason || 'Patient presents with acute symptoms for clinical consultation.'
+    appointment.reason || 'Patient presents for clinical consultation with acute symptoms.'
   );
   const [vitals, setVitals] = useState({
     bp: '120/80 mmHg',
@@ -20,8 +20,9 @@ export function DoctorRecordModal({ appointment, onClose, onRecordSaved }: Docto
     hr: '75 bpm',
     spo2: '98%',
   });
-  const [assessment, setAssessment] = useState('Acute symptom presentation — evaluated.');
-  const [plan, setPlan] = useState('1. Paracetamol 500mg TDS x 5 days\n2. Hydration & rest\n3. Review in 1 week if unresolving.');
+  const [assessment, setAssessment] = useState('Primary Clinical Impression & Differential Assessment.');
+  const [plan, setPlan] = useState('1. Paracetamol 500mg TDS x 5 days\n2. Hydration & rest\n3. Review in 5-7 days.');
+  const [icd10Suggestions, setIcd10Suggestions] = useState<string[]>([]);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,13 +53,16 @@ Doctor Diagnostic Notes: ${assessment}`;
         if (note.subjective) setSubjective(note.subjective);
         if (note.assessment) setAssessment(note.assessment);
         if (note.plan) setPlan(note.plan);
-        setAiMessage('✨ AI Clinical SOAP note generated successfully!');
+        if (note.icd10_suggestions && Array.isArray(note.icd10_suggestions)) {
+          setIcd10Suggestions(note.icd10_suggestions);
+        }
+        setAiMessage('✨ AI Clinical Diagnosis, Prescriptions & SOAP Note generated!');
       } else {
-        setAiMessage('⚠️ AI generation delayed. Default clinical structure provided.');
+        setAiMessage('⚠️ AI generation notice: Clinical fallback template populated.');
       }
     } catch (err) {
       console.warn('[AI SOAP FAIL]', err);
-      setAiMessage('⚠️ AI connection notice. Local clinical template loaded.');
+      setAiMessage('⚠️ Connection notice: Local evidence-based template loaded.');
     } finally {
       setIsAiGenerating(false);
     }
@@ -69,10 +73,11 @@ Doctor Diagnostic Notes: ${assessment}`;
     const fullClinicalRecord = `[CLINICAL EMR RECORD]
 Subjective: ${subjective}
 Vitals: BP ${vitals.bp} | Temp ${vitals.temp} | HR ${vitals.hr} | SpO2 ${vitals.spo2}
-Assessment: ${assessment}
+Assessment (Diagnosis): ${assessment}
+ICD-10 Suggestions: ${icd10Suggestions.join(', ') || 'N/A'}
 Plan & Prescriptions:
 ${plan}
-Recorded by Dr. at ${new Date().toLocaleString()}`;
+Recorded by Attending Physician at ${new Date().toLocaleString()}`;
 
     try {
       await updateAppointment(appointment.id, {
@@ -124,7 +129,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
               </div>
             )}
 
-            {/* Patient Header Banner */}
+            {/* Patient Header Banner & AI Trigger Button */}
             <div className="card border-0 shadow-sm p-3 mb-3 bg-white rounded-3">
               <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div>
@@ -144,7 +149,7 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
                   ) : (
                     <i className="bi bi-stars" />
                   )}
-                  <span>{isAiGenerating ? 'Generating AI Note...' : '✨ AI Clinical SOAP Note (Kimi)'}</span>
+                  <span>{isAiGenerating ? 'AI Analyzing Diagnosis & Rx...' : '✨ AI Diagnostic & Prescription Assistant'}</span>
                 </button>
               </div>
             </div>
@@ -194,49 +199,73 @@ Recorded by Dr. at ${new Date().toLocaleString()}`;
               </div>
             </div>
 
-            {/* SOAP Note Fields */}
+            {/* SOAP Note & AI Diagnostic / Prescription Assistance Fields */}
             <div className="row g-3">
               <div className="col-12 col-md-6">
                 <div className="card border-0 shadow-sm p-3 bg-white rounded-3 h-100">
-                  <label className="form-label fw-bold text-dark mb-1">
-                    S - Subjective (History &amp; Symptoms)
+                  <label className="form-label fw-bold text-dark mb-1 d-flex align-items-center gap-1">
+                    <i className="bi bi-person-lines-fill text-primary" />
+                    <span>S - Subjective (History &amp; Symptoms)</span>
                   </label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     className="form-control form-control-sm"
                     value={subjective}
                     onChange={(e) => setSubjective(e.target.value)}
-                    placeholder="Patient complained of..."
+                    placeholder="Patient reported symptoms..."
                   />
                 </div>
               </div>
 
               <div className="col-12 col-md-6">
                 <div className="card border-0 shadow-sm p-3 bg-white rounded-3 h-100">
-                  <label className="form-label fw-bold text-dark mb-1">
-                    A - Assessment (Diagnosis)
+                  <label className="form-label fw-bold text-dark mb-1 d-flex align-items-center justify-content-between">
+                    <span className="d-flex align-items-center gap-1">
+                      <i className="bi bi-search-heart text-danger" />
+                      <span>A - Assessment &amp; AI Diagnosis</span>
+                    </span>
+                    <span className="badge text-bg-info text-uppercase" style={{ fontSize: '10px' }}>AI Medical Assist</span>
                   </label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     className="form-control form-control-sm"
                     value={assessment}
                     onChange={(e) => setAssessment(e.target.value)}
-                    placeholder="Clinical diagnosis..."
+                    placeholder="Primary diagnosis & differential diagnoses..."
                   />
+                  {icd10Suggestions.length > 0 && (
+                    <div className="mt-2">
+                      <small className="text-muted d-block mb-1 font-semibold" style={{ fontSize: '11px' }}>
+                        Suggested ICD-10 Codes:
+                      </small>
+                      <div className="d-flex flex-wrap gap-1">
+                        {icd10Suggestions.map((icd, idx) => (
+                          <span key={idx} className="badge text-bg-light border text-dark" style={{ fontSize: '10px' }}>
+                            <i className="bi bi-tag-fill text-primary me-1" />
+                            {icd}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="col-12">
                 <div className="card border-0 shadow-sm p-3 bg-white rounded-3">
-                  <label className="form-label fw-bold text-dark mb-1">
-                    P - Plan &amp; Prescriptions
+                  <label className="form-label fw-bold text-dark mb-1 d-flex align-items-center justify-content-between">
+                    <span className="d-flex align-items-center gap-1">
+                      <i className="bi bi-capsule text-success" />
+                      <span>P - Treatment Plan, Prescriptions &amp; Lab Orders</span>
+                    </span>
+                    <span className="badge text-bg-success" style={{ fontSize: '10px' }}>Rx &amp; Lab Orders</span>
                   </label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     className="form-control form-control-sm font-mono"
                     value={plan}
                     onChange={(e) => setPlan(e.target.value)}
-                    placeholder="Medications, dosage, lab tests ordered, follow-up..."
+                    placeholder="1. Prescriptions (Medication, dose, frequency, duration)&#10;2. Lab / Imaging tests&#10;3. Patient instructions & follow-up..."
                   />
                 </div>
               </div>

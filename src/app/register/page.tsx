@@ -18,11 +18,15 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD;
-  const passwordsDiffer = confirmPassword.length > 0 && confirmPassword !== password;
+  // Errors surface once the user has left the field, not while they type.
+  const passwordTooShort = touched.password && password.length > 0 && password.length < MIN_PASSWORD;
+  const passwordsDiffer = touched.confirm && confirmPassword.length > 0 && confirmPassword !== password;
+  const canSubmit =
+    fullName.trim() && email.trim() && phone.trim() && password.length >= MIN_PASSWORD && confirmPassword === password;
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +50,7 @@ export default function RegisterPage() {
     setIsSubmitting(false);
 
     if (!result.success) {
-      setErrorMsg(result.error || 'Registration failed. Please try again.');
+      setErrorMsg(result.error || 'We could not create your account. Please try again.');
       return;
     }
 
@@ -64,9 +68,9 @@ export default function RegisterPage() {
 
         <div>
           <h2>
-            Begin with an
+            Begin with an assessment,
             <br />
-            assessment, not a queue.
+            not a queue.
           </h2>
           <p>
             Create a patient account to describe your symptoms, understand how urgent they are, and book the right
@@ -113,12 +117,14 @@ export default function RegisterPage() {
           <h1 className="auth-title">Create your account</h1>
           <p className="auth-sub">Patient registration takes less than a minute.</p>
 
-          {errorMsg && (
-            <div className="auth-alert" role="alert">
-              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+          <div role="status" aria-live="polite">
+            {errorMsg && (
+              <div className="lp-notice lp-notice-danger">
+                <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
+                <p>{errorMsg}</p>
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleRegisterSubmit} noValidate>
             <div className="lp-field">
@@ -129,6 +135,7 @@ export default function RegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Ama Serwaa Prempeh"
+                required
               />
             </div>
 
@@ -137,11 +144,17 @@ export default function RegisterPage() {
               <input
                 id="regEmail"
                 type="email"
+                inputMode="email"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                required
+                aria-describedby="regEmail-help"
               />
+              <p className="lp-help" id="regEmail-help">
+                This becomes your sign-in name.
+              </p>
             </div>
 
             <div className="lp-field">
@@ -149,14 +162,16 @@ export default function RegisterPage() {
               <input
                 id="regPhone"
                 type="tel"
+                inputMode="tel"
                 autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+233 24 000 0000"
+                required
               />
             </div>
 
-            <div className="lp-field">
+            <div className={`lp-field${passwordTooShort ? ' lp-field-invalid' : ''}`}>
               <label htmlFor="regPassword">Password</label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -165,38 +180,36 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                   placeholder="At least 8 characters"
-                  style={{
-                    paddingRight: '2.75rem',
-                    ...(passwordTooShort ? { borderColor: '#b0455a' } : {}),
-                  }}
+                  required
+                  aria-invalid={!!passwordTooShort}
+                  aria-describedby={passwordTooShort ? 'regPassword-error' : 'regPassword-help'}
+                  style={{ paddingRight: '3rem' }}
                 />
                 <button
                   type="button"
+                  className="auth-pw-toggle"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{
-                    position: 'absolute',
-                    right: '0.6rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 0,
-                    color: 'inherit',
-                    opacity: 0.6,
-                  }}
+                  aria-pressed={showPassword}
                 >
                   <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true" />
                 </button>
               </div>
-              {passwordTooShort && (
-                <p style={{ color: '#b0455a', fontSize: '0.8rem', margin: '0.4rem 0 0' }}>
+              {passwordTooShort ? (
+                <p className="lp-error" id="regPassword-error">
+                  <i className="bi bi-exclamation-circle-fill" aria-hidden="true" />
                   Use at least {MIN_PASSWORD} characters.
+                </p>
+              ) : (
+                <p className="lp-help" id="regPassword-help">
+                  Minimum {MIN_PASSWORD} characters.
                 </p>
               )}
             </div>
 
-            <div className="lp-field">
+            <div className={`lp-field${passwordsDiffer ? ' lp-field-invalid' : ''}`}>
               <label htmlFor="regConfirm">Confirm password</label>
               <input
                 id="regConfirm"
@@ -204,21 +217,21 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
                 placeholder="Re-enter your password"
-                style={passwordsDiffer ? { borderColor: '#b0455a' } : undefined}
+                required
+                aria-invalid={!!passwordsDiffer}
+                aria-describedby={passwordsDiffer ? 'regConfirm-error' : undefined}
               />
               {passwordsDiffer && (
-                <p style={{ color: '#b0455a', fontSize: '0.8rem', margin: '0.4rem 0 0' }}>
-                  The passwords do not match.
+                <p className="lp-error" id="regConfirm-error">
+                  <i className="bi bi-exclamation-circle-fill" aria-hidden="true" />
+                  The two passwords do not match.
                 </p>
               )}
             </div>
 
-            <button
-              type="submit"
-              className="lp-btn lp-btn-primary auth-submit"
-              disabled={isSubmitting || passwordTooShort || passwordsDiffer}
-            >
+            <button type="submit" className="lp-btn lp-btn-primary auth-submit" disabled={isSubmitting || !canSubmit}>
               {isSubmitting ? (
                 <>
                   <i className="bi bi-arrow-repeat spin" aria-hidden="true" /> Creating your account…

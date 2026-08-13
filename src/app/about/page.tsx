@@ -13,11 +13,11 @@ const OLD_WAY = [
 const NEW_WAY = [
   'Every symptom set is scored 0–100 and the queue is ordered by clinical need.',
   'The intake record — symptoms, duration, pain, red flags — reaches the clinician first.',
-  'Bookable times come from the hours each clinician publishes, and the database refuses a duplicate.',
-  'Assessments, bookings and payments all append to a trail that can be reviewed later.',
+  'Bookable times come from published consulting hours, and the database refuses a duplicate.',
+  'Assessments, bookings and payments append to a trail that can be reviewed later.',
 ];
 
-const VALUES = [
+const PRINCIPLES = [
   {
     numeral: 'I',
     title: 'Explainable, not clever',
@@ -40,11 +40,27 @@ const VALUES = [
   },
 ];
 
-const MILESTONES = [
-  { period: 'The problem', copy: 'Outpatient departments order patients by arrival, not by need. Clinical urgency is invisible until someone is already in the room.' },
-  { period: 'The approach', copy: 'Move the assessment before the booking. Score the symptoms, screen for danger signs, then let urgency decide the order.' },
-  { period: 'The system', copy: 'A triage engine, a scheduling layer bound to real clinician availability, secure video consultations and a complete clinical record.' },
-  { period: 'What is next', copy: 'A live payment provider, scheduled reminder delivery, and richer analytics on how well the triage tiers match clinical outcomes.' },
+const CHAPTERS = [
+  {
+    step: 'I',
+    title: 'The problem',
+    copy: 'Outpatient departments order patients by arrival, not by need. Clinical urgency stays invisible until someone is already in the room.',
+  },
+  {
+    step: 'II',
+    title: 'The approach',
+    copy: 'Move the assessment ahead of the booking. Score the symptoms, screen for danger signs, then let urgency decide the order.',
+  },
+  {
+    step: 'III',
+    title: 'The system',
+    copy: 'A triage engine, scheduling bound to real clinician availability, secure video consultations, and a complete clinical record.',
+  },
+  {
+    step: 'IV',
+    title: 'What is next',
+    copy: 'A live payment provider, scheduled reminder delivery, and analytics on how well the urgency tiers match clinical outcomes.',
+  },
 ];
 
 export default function AboutPage() {
@@ -52,28 +68,28 @@ export default function AboutPage() {
     <div className="lp">
       <header className="lp-pagehead">
         <div className="lp-pagehead-inner">
-          <p className="lp-eyebrow">About PulseTriage</p>
+          <p className="lp-eyebrow lp-rule-above">About PulseTriage</p>
           <h1 className="lp-display lp-display-sm">
-            Care should be ordered by
+            Care should be ordered by need,
             <br />
-            need, not by arrival time.
+            not by arrival time.
           </h1>
           <p>
-            PulseTriage is a telehealth triage and appointment system built around one idea: the assessment should
-            happen before the booking, so the sickest patient is seen first.
+            A telehealth triage and appointment system built around one idea: the assessment belongs before the
+            booking, so the sickest patient is seen first.
           </p>
         </div>
       </header>
 
       {/* ── Mission ──────────────────────────────────────────────────────── */}
       <section className="lp-section">
-        <div className="lp-quote">
+        <figure className="lp-quote">
           <blockquote>
-            &ldquo;In a first-come, first-served waiting room, the sickest patient is whoever happened to arrive
-            early. We thought that was worth fixing.&rdquo;
+            In a first-come, first-served waiting room, the sickest patient is whoever happened to arrive early. We
+            thought that was worth fixing.
           </blockquote>
           <cite>The PulseTriage team</cite>
-        </div>
+        </figure>
       </section>
 
       {/* ── Problem / approach ───────────────────────────────────────────── */}
@@ -89,7 +105,7 @@ export default function AboutPage() {
             <ul className="lp-list lp-list-negative">
               {OLD_WAY.map((item) => (
                 <li key={item}>
-                  <i className="bi bi-x-lg" aria-hidden="true" />
+                  <i className="bi bi-x-circle" aria-hidden="true" />
                   {item}
                 </li>
               ))}
@@ -101,7 +117,7 @@ export default function AboutPage() {
             <ul className="lp-list lp-list-positive">
               {NEW_WAY.map((item) => (
                 <li key={item}>
-                  <i className="bi bi-check-lg" aria-hidden="true" />
+                  <i className="bi bi-check-circle" aria-hidden="true" />
                   {item}
                 </li>
               ))}
@@ -110,7 +126,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── Values ───────────────────────────────────────────────────────── */}
+      {/* ── Principles ───────────────────────────────────────────────────── */}
       <section className="lp-section">
         <header className="lp-section-head">
           <p className="lp-eyebrow">What we hold to</p>
@@ -118,14 +134,14 @@ export default function AboutPage() {
         </header>
 
         <div className="lp-principles">
-          {VALUES.map((value) => (
-            <article className="lp-principle" key={value.numeral}>
+          {PRINCIPLES.map((principle) => (
+            <article className="lp-principle" key={principle.numeral}>
               <span className="lp-numeral" aria-hidden="true">
-                {value.numeral}
+                {principle.numeral}
               </span>
               <div>
-                <h3>{value.title}</h3>
-                <p>{value.copy}</p>
+                <h3>{principle.title}</h3>
+                <p>{principle.copy}</p>
               </div>
             </article>
           ))}
@@ -140,12 +156,13 @@ export default function AboutPage() {
         </header>
 
         <ol className="lp-journey">
-          {MILESTONES.map((milestone) => (
-            <li key={milestone.period}>
+          {CHAPTERS.map((chapter) => (
+            <li key={chapter.step}>
               <span className="lp-step" aria-hidden="true">
-                {milestone.period}
+                {chapter.step}
               </span>
-              <p>{milestone.copy}</p>
+              <h3>{chapter.title}</h3>
+              <p>{chapter.copy}</p>
             </li>
           ))}
         </ol>
@@ -153,9 +170,9 @@ export default function AboutPage() {
 
       {/* ── Scope and honesty ────────────────────────────────────────────── */}
       <section className="lp-section">
-        <div className="lp-prose">
+        <div className="lp-wrap-narrow lp-prose">
           <h3>What this system is — and what it is not</h3>
-          <p>
+          <p className="lp-prose-lead">
             PulseTriage prioritises and schedules non-emergency outpatient care. It is a decision aid for ordering a
             queue, not a diagnostic device and not a substitute for emergency services. When the assessment detects a
             red-flag indicator it stops, withholds booking, and directs the patient to emergency care.
@@ -188,7 +205,7 @@ export default function AboutPage() {
           <p className="lp-eyebrow lp-eyebrow-inverse">See it for yourself</p>
           <h2 className="lp-display lp-display-sm">Start with a symptom assessment</h2>
           <p>About three minutes, ending with a clear urgency tier and a specialist you can book straight away.</p>
-          <div className="lp-actions lp-actions-center">
+          <div className="lp-actions">
             <Link className="lp-btn lp-btn-light" href="/register">
               Create an account
             </Link>

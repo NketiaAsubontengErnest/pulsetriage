@@ -21,6 +21,24 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
+/** Reserves the real card height while loading so the grid never jumps. */
+function DirectorySkeleton() {
+  return (
+    <div className="lp-directory" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div className="lp-skeleton" key={i}>
+          <div className="lp-skeleton-bar" style={{ width: '64px', height: '64px', borderRadius: '50%' }} />
+          <div className="lp-skeleton-bar" style={{ width: '60%', height: '20px', marginTop: '1.5rem' }} />
+          <div className="lp-skeleton-bar" style={{ width: '35%' }} />
+          <div className="lp-skeleton-bar" style={{ width: '100%', marginTop: '1.5rem' }} />
+          <div className="lp-skeleton-bar" style={{ width: '92%' }} />
+          <div className="lp-skeleton-bar" style={{ width: '70%' }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,8 +53,8 @@ export default function DoctorsPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Specialty filters are derived from whoever is actually on the registry,
-  // so an empty specialty never appears as a dead chip.
+  // Filters are derived from whoever is actually on the registry, so an empty
+  // specialty never appears as a dead chip.
   const specialties = useMemo(
     () => ['All', ...Array.from(new Set(doctors.map((d) => d.specialization))).sort()],
     [doctors]
@@ -55,11 +73,11 @@ export default function DoctorsPage() {
     <div className="lp">
       <header className="lp-pagehead">
         <div className="lp-pagehead-inner">
-          <p className="lp-eyebrow">Clinician directory</p>
+          <p className="lp-eyebrow lp-rule-above">Clinician directory</p>
           <h1 className="lp-display lp-display-sm">Our verified specialists</h1>
           <p>
             Every clinician listed here has had their medical licence verified before being allowed to accept
-            bookings. Consultation fees and availability are their own.
+            bookings. Consultation fees and consulting hours are their own.
           </p>
         </div>
       </header>
@@ -69,12 +87,15 @@ export default function DoctorsPage() {
         <div className="lp-toolbar">
           <div className="lp-search">
             <i className="bi bi-search" aria-hidden="true" />
+            <label className="visually-hidden" htmlFor="doctorSearch">
+              Search clinicians
+            </label>
             <input
+              id="doctorSearch"
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by name, specialty or interest"
-              aria-label="Search clinicians"
             />
           </div>
 
@@ -83,7 +104,7 @@ export default function DoctorsPage() {
               <button
                 key={specialty}
                 type="button"
-                className={`lp-chip${activeSpecialty === specialty ? ' is-active' : ''}`}
+                className="lp-chip"
                 onClick={() => setActiveSpecialty(specialty)}
                 aria-pressed={activeSpecialty === specialty}
               >
@@ -95,37 +116,51 @@ export default function DoctorsPage() {
 
         {loadError && (
           <div className="lp-notice lp-notice-danger" role="alert">
-            <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
-            {loadError}
+            <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
+            <p>{loadError}</p>
           </div>
         )}
 
+        {/* Result count is announced so screen readers hear filtering take effect. */}
+        <p className="visually-hidden" role="status" aria-live="polite">
+          {isLoading ? 'Loading clinicians' : `${filtered.length} clinicians match your filters`}
+        </p>
+
         {isLoading ? (
-          <div className="lp-empty">
-            <i className="bi bi-hourglass-split" aria-hidden="true" />
-            <p className="mb-0">Loading the clinician directory…</p>
-          </div>
+          <DirectorySkeleton />
         ) : filtered.length === 0 ? (
           <div className="lp-empty">
             <i className="bi bi-person-x" aria-hidden="true" />
-            <p className="mb-0">
+            <p>
               {doctors.length === 0
                 ? 'No clinicians have been verified on the registry yet.'
-                : 'No clinician matches that search. Try a different specialty or term.'}
+                : 'No clinician matches that search.'}
             </p>
+            {doctors.length > 0 && (
+              <button
+                type="button"
+                className="lp-btn lp-btn-ghost"
+                onClick={() => {
+                  setSearchTerm('');
+                  setActiveSpecialty('All');
+                }}
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="lp-directory">
             {filtered.map((doctor) => (
-              <article className="lp-doctor" key={doctor.id}>
+              <article className="lp-card lp-doctor" key={doctor.id}>
                 <div className="lp-doctor-head">
-                  <div className="lp-doctor-portrait">
+                  <div className="lp-portrait">
                     {doctor.avatar_url ? (
-                      // Remote and data URLs bypass next/image optimisation here.
+                      // Remote/data URLs bypass next/image optimisation here.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={doctor.avatar_url} alt="" />
+                      <img src={doctor.avatar_url} alt="" width={64} height={64} loading="lazy" />
                     ) : (
-                      initials(doctor.full_name)
+                      <span aria-hidden="true">{initials(doctor.full_name)}</span>
                     )}
                   </div>
                   <div className="min-w-0">
@@ -146,13 +181,20 @@ export default function DoctorsPage() {
                     <strong>{doctor.rating ? doctor.rating.toFixed(2) : '—'}</strong>
                   </div>
                   <div>
-                    <span>Status</span>
-                    <strong>Verified</strong>
+                    <span>Registry</span>
+                    <span className="lp-verified">
+                      <i className="bi bi-patch-check-fill" aria-hidden="true" />
+                      Verified
+                    </span>
                   </div>
                 </div>
 
-                <Link className="lp-audience-link" href={`/booking?specialty=${encodeURIComponent(doctor.specialization)}`}>
-                  Book a consultation <i className="bi bi-arrow-right" aria-hidden="true" />
+                <Link
+                  className="lp-link"
+                  href={`/booking?specialty=${encodeURIComponent(doctor.specialization)}`}
+                >
+                  Book with {doctor.full_name.replace(/^Dr\.?\s+/i, 'Dr. ')}
+                  <i className="bi bi-arrow-right" aria-hidden="true" />
                 </Link>
               </article>
             ))}
@@ -189,7 +231,7 @@ export default function DoctorsPage() {
           <p className="lp-eyebrow lp-eyebrow-inverse">Next step</p>
           <h2 className="lp-display lp-display-sm">Find the right specialist for you</h2>
           <p>Begin with a symptom assessment and let the recommendation guide the booking.</p>
-          <div className="lp-actions lp-actions-center">
+          <div className="lp-actions">
             <Link className="lp-btn lp-btn-light" href="/register">
               Create an account
             </Link>

@@ -42,7 +42,7 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (!result.success) {
-      setErrorMsg(result.error || 'Invalid credentials. Please try again.');
+      setErrorMsg(result.error || 'That email and password did not match an account. Please check and try again.');
     } else {
       // Role is embedded in the session — read from localStorage
       const session = JSON.parse(localStorage.getItem('pulsetriage_session') || '{}');
@@ -57,7 +57,7 @@ export default function LoginPage() {
     setDemoLoading(null);
 
     if (!result.success) {
-      setErrorMsg(result.error || 'Demo login failed.');
+      setErrorMsg(result.error || 'Demo sign-in failed.');
     } else {
       redirectByRole(role);
     }
@@ -121,12 +121,14 @@ export default function LoginPage() {
           <h1 className="auth-title">Welcome back</h1>
           <p className="auth-sub">Sign in to continue to your workspace.</p>
 
-          {errorMsg && (
-            <div className="auth-alert" role="alert">
-              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+          <div role="status" aria-live="polite">
+            {errorMsg && (
+              <div className="lp-notice lp-notice-danger">
+                <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
+                <p>{errorMsg}</p>
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleLoginSubmit} noValidate>
             <div className="lp-field">
@@ -134,10 +136,12 @@ export default function LoginPage() {
               <input
                 id="loginEmail"
                 type="email"
+                inputMode="email"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                required
               />
             </div>
 
@@ -150,23 +154,16 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  style={{ paddingRight: '2.75rem' }}
+                  placeholder="Your password"
+                  required
+                  style={{ paddingRight: '3rem' }}
                 />
                 <button
                   type="button"
+                  className="auth-pw-toggle"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{
-                    position: 'absolute',
-                    right: '0.6rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 0,
-                    color: 'inherit',
-                    opacity: 0.6,
-                  }}
+                  aria-pressed={showPassword}
                 >
                   <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true" />
                 </button>
@@ -201,11 +198,10 @@ export default function LoginPage() {
                   <span className="auth-demo-name">{account.name}</span>
                   <span className="auth-demo-role">{account.role}</span>
                 </span>
-                {demoLoading === account.role ? (
-                  <i className="bi bi-arrow-repeat spin" aria-hidden="true" />
-                ) : (
-                  <i className="bi bi-arrow-right" aria-hidden="true" />
-                )}
+                <i
+                  className={`bi ${demoLoading === account.role ? 'bi-arrow-repeat spin' : 'bi-arrow-right'}`}
+                  aria-hidden="true"
+                />
               </button>
             ))}
           </div>

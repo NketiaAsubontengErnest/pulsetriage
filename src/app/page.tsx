@@ -181,7 +181,7 @@ export default function Home() {
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="lp-hero">
         <div className="lp-hero-inner">
-          <p className="lp-eyebrow">Telehealth triage &amp; appointment system</p>
+          <p className="lp-eyebrow lp-rule-above">Telehealth triage &amp; appointment system</p>
 
           <h1 className="lp-display">
             The most urgent patient
@@ -280,8 +280,8 @@ export default function Home() {
 
         <div className="lp-capabilities">
           {CAPABILITIES.map((capability) => (
-            <article className="lp-capability" key={capability.title}>
-              <i className={`bi ${capability.icon}`} aria-hidden="true" />
+            <article className="lp-card" key={capability.title}>
+              <span className="lp-card-icon"><i className={`bi ${capability.icon}`} aria-hidden="true" /></span>
               <h3>{capability.title}</h3>
               <p>{capability.copy}</p>
             </article>
@@ -298,8 +298,8 @@ export default function Home() {
 
         <div className="lp-audiences">
           {AUDIENCES.map((audience) => (
-            <article className="lp-audience" key={audience.role}>
-              <i className={`bi ${audience.icon}`} aria-hidden="true" />
+            <article className="lp-card lp-audience" key={audience.role}>
+              <span className="lp-card-icon"><i className={`bi ${audience.icon}`} aria-hidden="true" /></span>
               <h3>{audience.role}</h3>
               <p>{audience.copy}</p>
               <ul>
@@ -307,7 +307,7 @@ export default function Home() {
                   <li key={point}>{point}</li>
                 ))}
               </ul>
-              <Link className="lp-audience-link" href={audience.href}>
+              <Link className="lp-link" href={audience.href}>
                 {audience.cta} <i className="bi bi-arrow-right" aria-hidden="true" />
               </Link>
             </article>
@@ -336,7 +336,7 @@ export default function Home() {
             It takes about three minutes, and it ends with a clear urgency tier, a recommended specialty and a
             consultation you can book straight away.
           </p>
-          <div className="lp-actions lp-actions-center">
+          <div className="lp-actions">
             <Link className="lp-btn lp-btn-light" href="/register">
               Create an account
             </Link>

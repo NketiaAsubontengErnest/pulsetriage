@@ -80,6 +80,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <title>PulseTriage | Telehealth &amp; Urgency Auto-Triage System</title>
         <meta name="description" content="CSCD 602 Advanced Software Engineering Capstone Examination Project" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* Public-site typography: EB Garamond carries the display voice,
+            Lato the interface. `display=swap` keeps text visible while the
+            fonts load, and both families fall back to a matching stack. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Lato:wght@400;700;900&display=swap"
+        />
         <link rel="stylesheet" href="/assets/css/bootstrap.min.css" />
         <link rel="stylesheet" href="/assets/vendors/bootstrap-icons/bootstrap-icons.css" />
         <link rel="stylesheet" href="/assets/css/style.css" />

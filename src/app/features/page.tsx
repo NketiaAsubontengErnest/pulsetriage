@@ -8,6 +8,7 @@ const TIERS = [
   {
     tier: 'Emergency',
     tone: 'lp-tier-emergency',
+    icon: 'bi-exclamation-octagon-fill',
     range: '80 – 100',
     meaning: 'A red-flag indicator, or a severe presentation of sudden onset.',
     action: 'Booking is withheld and the patient is directed to emergency services immediately.',
@@ -15,6 +16,7 @@ const TIERS = [
   {
     tier: 'Urgent',
     tone: 'lp-tier-urgent',
+    icon: 'bi-exclamation-triangle-fill',
     range: '60 – 79',
     meaning: 'Significant symptoms that should not wait for a routine slot.',
     action: 'Fast-tracked to the earliest available consultation, typically the same day.',
@@ -22,6 +24,7 @@ const TIERS = [
   {
     tier: 'Semi-urgent',
     tone: 'lp-tier-semi',
+    icon: 'bi-info-circle-fill',
     range: '35 – 59',
     meaning: 'Moderate symptoms warranting review, but not same-hour attention.',
     action: 'Offered a same-day or next-day appointment with the recommended specialty.',
@@ -29,6 +32,7 @@ const TIERS = [
   {
     tier: 'Routine',
     tone: 'lp-tier-routine',
+    icon: 'bi-check-circle-fill',
     range: '0 – 34',
     meaning: 'Mild or long-standing complaints, follow-ups and check-ups.',
     action: 'Booked into standard consulting hours at the patient’s convenience.',
@@ -36,10 +40,26 @@ const TIERS = [
 ];
 
 const SCORING = [
-  { factor: 'Reported severity (1–10)', weight: 'up to 80 points', note: 'The patient’s own rating, weighted eight points per level.' },
-  { factor: 'Acute onset (under 2 days)', weight: '+15 points', note: 'Sudden onset raises priority; a long-standing complaint adds 5 instead.' },
-  { factor: 'Each red flag selected', weight: '+10 points', note: 'Non-critical warning signs accumulate on top of the base score.' },
-  { factor: 'Critical red flag', weight: 'overrides to 95', note: 'Chest pain radiating to the arm or jaw, stroke signs and four others short-circuit everything above.' },
+  {
+    factor: 'Reported severity (1–10)',
+    weight: 'up to 80',
+    note: 'The patient’s own rating, weighted eight points per level.',
+  },
+  {
+    factor: 'Acute onset (under 2 days)',
+    weight: '+15',
+    note: 'Sudden onset raises priority; a longer-standing complaint adds 5 instead.',
+  },
+  {
+    factor: 'Each red flag selected',
+    weight: '+10',
+    note: 'Non-critical warning signs accumulate on top of the base score.',
+  },
+  {
+    factor: 'Critical red flag',
+    weight: '→ 95',
+    note: 'Chest pain radiating to the arm or jaw, stroke signs and four others override everything above.',
+  },
 ];
 
 const CAPABILITIES = [
@@ -92,18 +112,22 @@ const CAPABILITIES = [
 
 const RELIABILITY = [
   {
+    step: '01',
     title: 'Transactional writes',
     copy: 'A booking writes the appointment, the clinician’s notification and the audit row inside a single transaction. A failure part-way leaves nothing behind.',
   },
   {
+    step: '02',
     title: 'Guaranteed unique slots',
     copy: 'Beyond the availability check, a unique database constraint reserves each slot. Concurrent attempts on one slot cannot both succeed.',
   },
   {
+    step: '03',
     title: 'Indexed query paths',
     copy: 'Slot generation, patient history, the notification tray and the audit view are each backed by an index rather than a full table scan.',
   },
   {
+    step: '04',
     title: 'Server-side validation',
     copy: 'Availability, dates and slot times are re-checked on the server. A stale tab or a direct API call cannot book something the picker would not offer.',
   },
@@ -137,7 +161,7 @@ export default function FeaturesPage() {
     <div className="lp">
       <header className="lp-pagehead">
         <div className="lp-pagehead-inner">
-          <p className="lp-eyebrow">The platform</p>
+          <p className="lp-eyebrow lp-rule-above">The platform</p>
           <h1 className="lp-display lp-display-sm">Everything the system does, and how</h1>
           <p>
             From the first symptom description to the signed clinical note — the mechanics behind each stage, stated
@@ -173,9 +197,12 @@ export default function FeaturesPage() {
               {TIERS.map((tier) => (
                 <tr key={tier.tier}>
                   <td>
-                    <span className={`lp-tier ${tier.tone}`}>{tier.tier}</span>
+                    <span className={`lp-tier ${tier.tone}`}>
+                      <i className={`bi ${tier.icon}`} aria-hidden="true" />
+                      {tier.tier}
+                    </span>
                   </td>
-                  <td>{tier.range}</td>
+                  <td className="lp-num">{tier.range}</td>
                   <td>{tier.meaning}</td>
                   <td>{tier.action}</td>
                 </tr>
@@ -198,7 +225,7 @@ export default function FeaturesPage() {
             <thead>
               <tr>
                 <th scope="col">Factor</th>
-                <th scope="col">Contribution</th>
+                <th scope="col">Points</th>
                 <th scope="col">Notes</th>
               </tr>
             </thead>
@@ -206,7 +233,7 @@ export default function FeaturesPage() {
               {SCORING.map((row) => (
                 <tr key={row.factor}>
                   <td>{row.factor}</td>
-                  <td>{row.weight}</td>
+                  <td className="lp-num">{row.weight}</td>
                   <td>{row.note}</td>
                 </tr>
               ))}
@@ -224,8 +251,10 @@ export default function FeaturesPage() {
 
         <div className="lp-capabilities">
           {CAPABILITIES.map((capability) => (
-            <article className="lp-capability" key={capability.title}>
-              <i className={`bi ${capability.icon}`} aria-hidden="true" />
+            <article className="lp-card" key={capability.title}>
+              <span className="lp-card-icon">
+                <i className={`bi ${capability.icon}`} aria-hidden="true" />
+              </span>
               <h3>{capability.title}</h3>
               <p>{capability.copy}</p>
             </article>
@@ -246,7 +275,10 @@ export default function FeaturesPage() {
 
         <ol className="lp-journey">
           {RELIABILITY.map((item) => (
-            <li key={item.title}>
+            <li key={item.step}>
+              <span className="lp-step" aria-hidden="true">
+                {item.step}
+              </span>
               <h3>{item.title}</h3>
               <p>{item.copy}</p>
             </li>
@@ -271,7 +303,7 @@ export default function FeaturesPage() {
           <p className="lp-eyebrow lp-eyebrow-inverse">Ready when you are</p>
           <h2 className="lp-display lp-display-sm">Run your first assessment</h2>
           <p>Three minutes, an urgency tier, a recommended specialty, and a consultation you can book immediately.</p>
-          <div className="lp-actions lp-actions-center">
+          <div className="lp-actions">
             <Link className="lp-btn lp-btn-light" href="/register">
               Create an account
             </Link>

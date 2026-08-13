@@ -62,11 +62,87 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appo
       }),
       db.appointment.findUnique({
         where: { id: appointmentId },
-        select: { status: true, notes: true },
+        // The doctor's side renders the intake brief next to the video, so this
+        // poll carries the triage assessment and the patient's identity too.
+        // Patients get the narrow projection — they already have their own data
+        // and the room endpoint is unauthenticated by peer id alone.
+        select:
+          role === 'DOCTOR'
+            ? {
+                status: true,
+                notes: true,
+                reason: true,
+                appointment_date: true,
+                start_time: true,
+                end_time: true,
+                patient_id: true,
+                patient: { select: { full_name: true, phone: true, email: true } },
+                triage: true,
+              }
+            : { status: true, notes: true },
       }),
     ]);
 
     const cursor = signals.length ? signals[signals.length - 1].seq : since;
+
+    // Past signed-off consultations give the doctor the patient's history
+    // without leaving the room. Cheap enough at one query per poll, and only
+    // for the doctor.
+    let patient_brief = null;
+    const detailed = appointment as typeof appointment & Record<string, any>;
+    if (role === 'DOCTOR' && detailed?.patient_id) {
+      const previous = await db.appointment.findMany({
+        where: {
+          patient_id: detailed.patient_id,
+          status: 'COMPLETED',
+          notes: { not: null },
+          id: { not: appointmentId },
+        },
+        orderBy: { appointment_date: 'desc' },
+        take: 3,
+        select: {
+          id: true,
+          appointment_date: true,
+          notes: true,
+          doctor: { select: { user: { select: { full_name: true } } } },
+        },
+      });
+
+      patient_brief = {
+        patient_name: detailed.patient?.full_name || 'Patient',
+        patient_phone: detailed.patient?.phone ?? null,
+        patient_email: detailed.patient?.email ?? null,
+        reason: detailed.reason ?? null,
+        appointment_date: detailed.appointment_date,
+        start_time: detailed.start_time,
+        end_time: detailed.end_time,
+        triage: detailed.triage
+          ? {
+              primary_symptom: detailed.triage.primary_symptom,
+              symptom_duration: detailed.triage.symptom_duration,
+              pain_score: detailed.triage.pain_score,
+              red_flag_present: detailed.triage.red_flag_present,
+              // safeParse falls back to {} on bad JSON, so the shape is checked.
+              red_flags: (() => {
+                const parsed = safeParse(detailed.triage.red_flags_json);
+                return Array.isArray(parsed) ? parsed : [];
+              })(),
+              severity_score: detailed.triage.severity_score,
+              urgency_level: detailed.triage.urgency_level,
+              recommended_specialty: detailed.triage.recommended_specialty,
+              triage_summary: detailed.triage.triage_summary,
+              action_recommendation: detailed.triage.action_recommendation,
+              created_at: detailed.triage.created_at,
+            }
+          : null,
+        history: previous.map((p) => ({
+          id: p.id,
+          appointment_date: p.appointment_date,
+          doctor_name: p.doctor?.user?.full_name ?? null,
+          notes: p.notes as string,
+        })),
+      };
+    }
 
     return NextResponse.json({
       cursor,
@@ -82,6 +158,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appo
       peers: presence.map((p) => ({ peer_id: p.peer_id, role: p.role, name: p.name })),
       appointment_status: appointment?.status || null,
       appointment_notes: appointment?.notes || null,
+      patient_brief,
     });
   } catch (error) {
     console.error('[ROOM/GET]', error);

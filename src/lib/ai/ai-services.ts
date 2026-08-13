@@ -370,6 +370,43 @@ How can I help you today? Feel free to ask about symptoms, video calls, or prepa
 }
 
 // ==========================================
+// FEATURE 7: In-Consultation Clinical Decision Support
+// ==========================================
+/**
+ * Answers a doctor's question about the patient they are currently consulting.
+ *
+ * Unlike the patient-facing assistant this one has no canned fallback: if the
+ * models cannot be reached the caller is told so plainly, because a fabricated
+ * clinical answer is worse than no answer.
+ */
+export async function clinicalConsultAI(
+  question: string,
+  consultationContext: string
+): Promise<{ answer: string; provenance: AIProvenance }> {
+  const systemPrompt: ChatMessage = {
+    role: 'system',
+    content: `You are a clinical decision-support assistant helping a licensed physician DURING a live telehealth consultation.
+The physician is the decision maker — you provide evidence-informed options, not instructions to the patient.
+
+Rules:
+- Be concise and scannable. Short headings and bullets, no preamble.
+- When suggesting drugs, always give name, dose, route, frequency and duration.
+- Name the discriminating feature for each differential rather than just listing them.
+- State explicitly when the presented information is insufficient to answer safely.
+- If anything in the context suggests an emergency, lead with that.
+- Never invent vital signs, test results or history that were not provided.`,
+  };
+
+  const messages: ChatMessage[] = [
+    systemPrompt,
+    { role: 'user', content: `CONSULTATION CONTEXT\n${consultationContext}\n\nPHYSICIAN'S QUESTION\n${question}` },
+  ];
+
+  const result = await queryOllamaEnsemble(messages, { temperature: 0.3, size: 3, useJudge: true });
+  return { answer: result.value, provenance: provenanceOf(result) };
+}
+
+// ==========================================
 // FEATURE 6: Predictive No-Show & Risk Estimator
 // ==========================================
 export interface NoShowPredictionResult {

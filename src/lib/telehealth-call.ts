@@ -24,6 +24,41 @@ export interface RemoteParticipant {
   name: string;
 }
 
+/**
+ * Everything the patient submitted before the call, delivered to the doctor's
+ * side of the room so the clinical context sits next to the video instead of
+ * in another tab.
+ */
+export interface PatientBrief {
+  patient_name: string;
+  patient_phone?: string | null;
+  patient_email?: string | null;
+  reason?: string | null;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  triage: {
+    primary_symptom: string;
+    symptom_duration: string;
+    pain_score: number;
+    red_flag_present: boolean;
+    red_flags: string[];
+    severity_score: number;
+    urgency_level: string;
+    recommended_specialty: string;
+    triage_summary: string;
+    action_recommendation: string;
+    created_at: string;
+  } | null;
+  /** Signed-off notes from this patient's previous consultations, newest first. */
+  history: Array<{
+    id: string;
+    appointment_date: string;
+    doctor_name?: string | null;
+    notes: string;
+  }>;
+}
+
 interface RoomSignal {
   seq: number;
   sender_id: string;
@@ -73,6 +108,14 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  // Which of the two local devices actually opened. Reported separately so the
+  // UI can say "they cannot hear you" rather than a vague media warning.
+  const [hasMic, setHasMic] = useState(false);
+  const [hasCamera, setHasCamera] = useState(false);
+  /** Set once the peer's audio track is flowing — the doctor-side sanity check. */
+  const [remoteHasAudio, setRemoteHasAudio] = useState(false);
+  /** Doctor-only intake brief for the patient in this room. */
+  const [patientBrief, setPatientBrief] = useState<PatientBrief | null>(null);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
@@ -174,13 +217,16 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
       const inbound = new MediaStream();
 
       const stream = localStreamRef.current;
-      if (stream && stream.getTracks().length > 0) {
-        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-      } else {
-        // No camera/mic on this device — still negotiate so we can *watch* the peer.
-        pc.addTransceiver('audio', { direction: 'recvonly' });
-        pc.addTransceiver('video', { direction: 'recvonly' });
-      }
+      const localKinds = new Set(stream?.getTracks().map((t) => t.kind) ?? []);
+      stream?.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      // Both media kinds must always appear in the SDP. A peer that only got a
+      // camera (mic busy, permission partially granted) would otherwise publish
+      // an offer with no audio m-line at all — and because the m-lines have to
+      // match on both sides, that silently kills audio in *both* directions,
+      // not just the one that is missing a microphone.
+      if (!localKinds.has('audio')) pc.addTransceiver('audio', { direction: 'recvonly' });
+      if (!localKinds.has('video')) pc.addTransceiver('video', { direction: 'recvonly' });
 
       // Tracks are announced as soon as the remote description is applied —
       // that is not yet a connection, so the status stays with ICE below.
@@ -197,6 +243,7 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
           if (!known.has(track)) inbound.addTrack(track);
         });
         setRemoteStream(new MediaStream(inbound.getTracks()));
+        setRemoteHasAudio(inbound.getAudioTracks().some((t) => t.readyState === 'live'));
 
         // A track that ends (peer turned the camera off, renegotiation) should
         // drop out of the rendered stream rather than freeze on its last frame.
@@ -205,6 +252,7 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
             inbound.removeTrack(event.track);
           } catch {}
           setRemoteStream(inbound.getTracks().length ? new MediaStream(inbound.getTracks()) : null);
+          setRemoteHasAudio(inbound.getAudioTracks().some((t) => t.readyState === 'live'));
         };
       };
 
@@ -429,24 +477,64 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
         markMediaReady();
         return;
       }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+
+      // Clinical audio is worth more than video, so the two devices are
+      // acquired independently. Asking for both in one call meant a busy camera
+      // — extremely common on Windows, where another app holds it — threw and
+      // left the doctor with no microphone either, which is silence on the
+      // patient's end for a call that otherwise looks connected.
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      const attempts: Array<{ constraints: MediaStreamConstraints; label: string }> = [
+        { constraints: { video: true, audio: audioConstraints }, label: 'camera and microphone' },
+        { constraints: { audio: audioConstraints }, label: 'microphone only' },
+        { constraints: { video: true }, label: 'camera only' },
+      ];
+
+      for (const attempt of attempts) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(attempt.constraints);
+          if (cancelled) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+
+          localStreamRef.current = stream;
+          cameraTrackRef.current = stream.getVideoTracks()[0] || null;
+          setLocalStream(stream);
+          setStatus((prev) => (prev === 'INITIALISING' ? 'WAITING' : prev));
+
+          const gotAudio = stream.getAudioTracks().length > 0;
+          const gotVideo = stream.getVideoTracks().length > 0;
+          setHasMic(gotAudio);
+          setHasCamera(gotVideo);
+
+          if (!gotAudio) {
+            setMediaError(
+              'Your microphone is unavailable, so the other participant cannot hear you. Check that no other app is using it, then reload.'
+            );
+          } else if (!gotVideo) {
+            setMediaError('Your camera is unavailable, but your microphone is working — the consultation can continue by voice.');
+          } else {
+            setMediaError(null);
+          }
+          markMediaReady();
           return;
+        } catch (err) {
+          console.warn(`[telehealth] could not open ${attempt.label}`, err);
         }
-        localStreamRef.current = stream;
-        cameraTrackRef.current = stream.getVideoTracks()[0] || null;
-        setLocalStream(stream);
-        setStatus((prev) => (prev === 'INITIALISING' ? 'WAITING' : prev));
-      } catch (err) {
-        console.warn('[telehealth] camera/mic unavailable', err);
-        if (cancelled) return;
-        setMediaError('Camera/microphone permission was denied or the device is busy. You can still see and hear the other participant.');
-        setStatus((prev) => (prev === 'INITIALISING' ? 'WAITING' : prev));
-      } finally {
-        if (!cancelled) markMediaReady();
       }
+
+      if (cancelled) return;
+      setHasMic(false);
+      setHasCamera(false);
+      setMediaError('Camera and microphone are both unavailable — permission was denied or the devices are busy. You can still see and hear the other participant.');
+      setStatus((prev) => (prev === 'INITIALISING' ? 'WAITING' : prev));
+      markMediaReady();
     }
 
     acquireMedia();
@@ -482,6 +570,8 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
         cursorRef.current = data.cursor ?? cursorRef.current;
         setAppointmentStatus(data.appointment_status ?? null);
         setAppointmentNotes(data.appointment_notes ?? null);
+        // Only the doctor's poll carries this; the API omits it for patients.
+        if (data.patient_brief) setPatientBrief(data.patient_brief as PatientBrief);
 
         // Presence — who else is sitting in this room right now?
         const others: RemoteParticipant[] = (data.peers || []).filter(
@@ -666,6 +756,10 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
     isAudioMuted,
     isVideoOff,
     isScreenSharing,
+    hasMic,
+    hasCamera,
+    remoteHasAudio,
+    patientBrief,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,

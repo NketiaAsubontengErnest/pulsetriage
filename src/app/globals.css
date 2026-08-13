@@ -1166,7 +1166,74 @@ html[data-theme="dark"] .avatar-initials {
   }
 
   .thr-panel {
-    width: 380px;
-    flex: 0 0 380px;
+    width: 420px;
+    flex: 0 0 420px;
+  }
+}
+
+/* ── Consultation panel tabs (chat / patient / notes / AI / info) ─────────── */
+.thr-tabs .nav-link {
+  font-size: 0.72rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  white-space: nowrap;
+}
+
+.thr-tabs .nav-link i {
+  display: block;
+  margin: 0 0 0.1rem !important;
+  font-size: 0.95rem;
+}
+
+.thr-tab-badge {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 0.6rem;
+  padding: 0.15rem 0.3rem;
+}
+
+/* Warns that the peer is sending no audio at all — a device problem on their
+   end, distinct from the local speaker being muted. */
+.thr-audio-warning {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.6rem;
+  z-index: 6;
+  font-size: 0.7rem;
+  max-width: 60%;
+  white-space: normal;
+  text-align: left;
+}
+
+/* Doctor's clinical panel launcher, stacked above the chat button. */
+.thr-clinical-fab {
+  right: 0.6rem;
+  bottom: calc(0.6rem + min(27vw, 130px) * 4 / 3 + 0.6rem + 52px + 0.5rem);
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 7;
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .thr-clinical-fab {
+    bottom: calc(0.5rem + min(15vw, 110px) * 4 / 3 + 0.5rem + 44px + 0.4rem);
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (min-width: 992px) {
+  .thr-tabs .nav-link {
+    font-size: 0.75rem;
+  }
+
+  .thr-audio-warning {
+    bottom: 1rem;
+    left: 1rem;
   }
 }

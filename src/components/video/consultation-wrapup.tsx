@@ -2,13 +2,19 @@
 
 import React, { useState } from 'react';
 import { Appointment } from '@/lib/types';
+import { PatientBrief } from '@/lib/telehealth-call';
 import { updateAppointment } from '@/lib/api';
 import { composeConsultationNotes } from '@/lib/consultation-notes';
+import { AIProvenanceBadge, AIProvenance } from '@/components/ai/ai-provenance-badge';
 
 interface ConsultationWrapUpProps {
   appointment: Appointment;
   /** In-call chat log, used to pre-fill the consultation summary. */
   transcript?: string;
+  /** Scratchpad the doctor filled in while the call was running. */
+  liveNotes?: string;
+  /** Intake record, so the AI draft and the S field start from real context. */
+  patientBrief?: PatientBrief | null;
   doctorName?: string;
   onSubmitted: (notes: string) => void;
   onExitWithoutCompleting: () => void;
@@ -22,12 +28,21 @@ interface ConsultationWrapUpProps {
 export function ConsultationWrapUp({
   appointment,
   transcript = '',
+  liveNotes = '',
+  patientBrief = null,
   doctorName,
   onSubmitted,
   onExitWithoutCompleting,
 }: ConsultationWrapUpProps) {
-  const [summary, setSummary] = useState(transcript || appointment.reason || '');
-  const [subjective, setSubjective] = useState(appointment.reason || '');
+  // Notes taken during the call are the most useful starting point; the chat
+  // log is the fallback when the doctor did not use the scratchpad.
+  const [summary, setSummary] = useState(liveNotes || transcript || appointment.reason || '');
+  const [subjective, setSubjective] = useState(
+    patientBrief?.triage
+      ? `${patientBrief.triage.primary_symptom} for ${patientBrief.triage.symptom_duration}, pain ${patientBrief.triage.pain_score}/10.` +
+          (patientBrief.triage.red_flags.length ? `\nRed flags reported: ${patientBrief.triage.red_flags.join(', ')}.` : '')
+      : appointment.reason || ''
+  );
   const [objective, setObjective] = useState('');
   const [assessment, setAssessment] = useState('');
   const [plan, setPlan] = useState('');
@@ -37,14 +52,27 @@ export function ConsultationWrapUp({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiProvenance, setAiProvenance] = useState<AIProvenance | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleGenerateSoap = async () => {
     setIsGenerating(true);
     setAiMessage(null);
-    const fullTranscript = `Patient: ${appointment.patient_name || 'Patient'}
-Presenting complaint: ${appointment.reason || 'Telehealth consultation'}
+    setAiProvenance(null);
+
+    const triage = patientBrief?.triage;
+    const fullTranscript = `Patient: ${patientBrief?.patient_name || appointment.patient_name || 'Patient'}
+Presenting complaint: ${patientBrief?.reason || appointment.reason || 'Telehealth consultation'}
+${
+  triage
+    ? `Triage at intake: ${triage.urgency_level}, severity ${triage.severity_score}/100, pain ${triage.pain_score}/10, ` +
+      `primary symptom "${triage.primary_symptom}" for ${triage.symptom_duration}. ` +
+      `Red flags: ${triage.red_flags.length ? triage.red_flags.join(', ') : 'none reported'}.`
+    : 'No triage assessment on file.'
+}
+Doctor's notes taken during the call:
+${liveNotes || '(none)'}
 Consultation summary / transcript:
 ${summary}
 Doctor observations: ${objective || 'Observed over telehealth video consultation.'}
@@ -63,14 +91,24 @@ Working impression: ${assessment || 'To be determined.'}`;
         if (note.objective) setObjective(note.objective);
         if (note.assessment) setAssessment(note.assessment);
         if (note.plan) setPlan(note.plan);
+        if (note.follow_up_recommendation) setFollowUp(note.follow_up_recommendation);
         if (Array.isArray(note.icd10_suggestions)) setIcd10(note.icd10_suggestions);
-        setAiMessage('✨ AI SOAP note drafted from the consultation. Review and edit before submitting.');
+        setAiProvenance(note.ai_provenance || null);
+
+        // Say plainly when the models were unreachable — an unlabelled template
+        // reads exactly like a generated note, which is how "the AI is working"
+        // gets believed when it is not.
+        setAiMessage(
+          note.ai_provenance?.method === 'fallback'
+            ? '⚠️ The AI models could not be reached. What was filled in is the deterministic template, NOT an AI-generated note — check /api/ai/health?live=1.'
+            : '✨ AI SOAP note drafted from the consultation. Review and edit before submitting.'
+        );
       } else {
-        setAiMessage('⚠️ AI unavailable — please complete the note manually.');
+        setAiMessage(`⚠️ AI unavailable — please complete the note manually. ${data.error || ''}`.trim());
       }
     } catch (err) {
       console.warn('[wrap-up] AI SOAP generation failed', err);
-      setAiMessage('⚠️ AI unavailable — please complete the note manually.');
+      setAiMessage(`⚠️ AI unavailable — please complete the note manually. (${(err as Error).message})`);
     } finally {
       setIsGenerating(false);
     }
@@ -137,9 +175,17 @@ Working impression: ${assessment || 'To be determined.'}`;
             </div>
 
             {aiMessage && (
-              <div className="alert alert-secondary d-flex align-items-center justify-content-between py-2 px-3 small" role="status">
+              <div
+                className={`alert d-flex align-items-center justify-content-between gap-2 py-2 px-3 small ${
+                  aiMessage.startsWith('⚠️') ? 'alert-warning' : 'alert-secondary'
+                }`}
+                role="status"
+              >
                 <span>{aiMessage}</span>
-                <button type="button" className="btn-close btn-sm" onClick={() => setAiMessage(null)} aria-label="Close" />
+                <span className="d-flex align-items-center gap-2 flex-shrink-0">
+                  <AIProvenanceBadge provenance={aiProvenance} />
+                  <button type="button" className="btn-close btn-sm" onClick={() => setAiMessage(null)} aria-label="Close" />
+                </span>
               </div>
             )}
 

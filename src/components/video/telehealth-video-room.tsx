@@ -2,8 +2,15 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Appointment } from '@/lib/types';
-import { useTelehealthCall, CallStatus, RoomChatMessage } from '@/lib/telehealth-call';
+import { useTelehealthCall, CallStatus, RoomChatMessage, PatientBrief } from '@/lib/telehealth-call';
 import { ConsultationWrapUp } from './consultation-wrapup';
+import {
+  PatientBriefTab,
+  ClinicalNotesTab,
+  InCallAiTab,
+  readDraftNotes,
+  draftNotesKey,
+} from './in-call-clinical-panel';
 
 interface TelehealthVideoRoomProps {
   appointment: Appointment;
@@ -26,21 +33,55 @@ const STATUS_LABEL: Record<CallStatus, { text: string; short: string; badge: str
 // Declared at module scope so switching between the two never remounts it and
 // loses the scroll position or the half-typed message.
 // ─────────────────────────────────────────────────────────────────────────────
+type PanelTab = 'chat' | 'patient' | 'notes' | 'ai' | 'info';
+
+interface TabSpec {
+  id: PanelTab;
+  label: string;
+  icon: string;
+}
+
+/** The patient keeps the original two tabs; the doctor gets the clinical set. */
+const PATIENT_TABS: TabSpec[] = [
+  { id: 'chat', label: 'Chat', icon: 'bi-chat-dots' },
+  { id: 'info', label: 'Info', icon: 'bi-info-circle' },
+];
+
+const DOCTOR_TABS: TabSpec[] = [
+  { id: 'chat', label: 'Chat', icon: 'bi-chat-dots' },
+  { id: 'patient', label: 'Patient', icon: 'bi-person-vcard' },
+  { id: 'notes', label: 'Notes', icon: 'bi-pencil-square' },
+  { id: 'ai', label: 'AI', icon: 'bi-stars' },
+  { id: 'info', label: 'Info', icon: 'bi-info-circle' },
+];
+
 interface ConsultationPanelProps {
   appointment: Appointment;
+  isDoctor: boolean;
   messages: RoomChatMessage[];
   remoteName: string;
-  activeTab: 'chat' | 'info';
-  onTabChange: (tab: 'chat' | 'info') => void;
+  activeTab: PanelTab;
+  onTabChange: (tab: PanelTab) => void;
   chatInput: string;
   onChatInputChange: (value: string) => void;
   onSendMessage: (e?: React.FormEvent) => void;
   statusText: string;
   remoteParticipantLabel: string;
+  patientBrief: PatientBrief | null;
+  clinicalNotes: string;
+  onClinicalNotesChange: (value: string) => void;
+  chatTranscript: string;
+  unreadCount: number;
+  /** Connection diagnostics shown on the Info tab. */
+  hasMic: boolean;
+  hasCamera: boolean;
+  remoteHasAudio: boolean;
+  isRemoteAudioOn: boolean;
 }
 
 const ConsultationPanel: React.FC<ConsultationPanelProps> = ({
   appointment,
+  isDoctor,
   messages,
   remoteName,
   activeTab,
@@ -50,8 +91,18 @@ const ConsultationPanel: React.FC<ConsultationPanelProps> = ({
   onSendMessage,
   statusText,
   remoteParticipantLabel,
+  patientBrief,
+  clinicalNotes,
+  onClinicalNotesChange,
+  chatTranscript,
+  unreadCount,
+  hasMic,
+  hasCamera,
+  remoteHasAudio,
+  isRemoteAudioOn,
 }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const tabs = isDoctor ? DOCTOR_TABS : PATIENT_TABS;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ block: 'nearest' });
@@ -59,24 +110,40 @@ const ConsultationPanel: React.FC<ConsultationPanelProps> = ({
 
   return (
     <>
-      <div className="nav nav-tabs nav-justified border-bottom border-secondary bg-black flex-shrink-0">
-        <button
-          type="button"
-          className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'chat' ? 'active bg-dark fw-bold' : 'opacity-75'}`}
-          onClick={() => onTabChange('chat')}
-        >
-          <i className="bi bi-chat-dots me-1" /> Live Chat
-        </button>
-        <button
-          type="button"
-          className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'info' ? 'active bg-dark fw-bold' : 'opacity-75'}`}
-          onClick={() => onTabChange('info')}
-        >
-          <i className="bi bi-info-circle me-1" /> Info
-        </button>
+      <div className="nav nav-tabs nav-justified border-bottom border-secondary bg-black flex-shrink-0 thr-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`nav-link text-white rounded-0 py-2 border-0 position-relative ${
+              activeTab === tab.id ? 'active bg-dark fw-bold' : 'opacity-75'
+            }`}
+            onClick={() => onTabChange(tab.id)}
+          >
+            <i className={`bi ${tab.icon} me-1`} />
+            {tab.label}
+            {tab.id === 'chat' && unreadCount > 0 && activeTab !== 'chat' && (
+              <span className="badge rounded-pill bg-danger thr-tab-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {activeTab === 'chat' ? (
+      {activeTab === 'patient' ? (
+        <PatientBriefTab appointment={appointment} brief={patientBrief} />
+      ) : activeTab === 'notes' ? (
+        <ClinicalNotesTab appointmentId={appointment.id} value={clinicalNotes} onChange={onClinicalNotesChange} />
+      ) : activeTab === 'ai' ? (
+        <InCallAiTab
+          appointment={appointment}
+          brief={patientBrief}
+          notes={clinicalNotes}
+          chatTranscript={chatTranscript}
+          onInsertIntoNotes={(text) =>
+            onClinicalNotesChange(clinicalNotes ? `${clinicalNotes.replace(/\s*$/, '')}\n\n${text}` : text)
+          }
+        />
+      ) : activeTab === 'chat' ? (
         <div className="d-flex flex-column flex-grow-1 min-h-0">
           <div className="flex-grow-1 overflow-y-auto p-3">
             <div className="mb-2 p-2 rounded-3 bg-secondary bg-opacity-25 text-center small text-muted">
@@ -143,6 +210,30 @@ const ConsultationPanel: React.FC<ConsultationPanelProps> = ({
             <p className="mb-1">Status: {statusText}</p>
             <p className="mb-0">In room: {remoteParticipantLabel}</p>
           </div>
+
+          {/* Audio path diagnostics — the fastest way to tell "they can't hear
+              me" apart from "I can't hear them". */}
+          <div className="p-2 bg-secondary bg-opacity-25 rounded-3">
+            <strong className="text-light d-block mb-1">Audio &amp; video check</strong>
+            <p className="mb-1">
+              <i className={`bi me-1 ${hasMic ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'}`} />
+              Your microphone: {hasMic ? 'sending' : 'not available — they cannot hear you'}
+            </p>
+            <p className="mb-1">
+              <i className={`bi me-1 ${hasCamera ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-warning'}`} />
+              Your camera: {hasCamera ? 'sending' : 'not available'}
+            </p>
+            <p className="mb-1">
+              <i
+                className={`bi me-1 ${remoteHasAudio ? 'bi-check-circle-fill text-success' : 'bi-dash-circle-fill text-warning'}`}
+              />
+              {remoteName}&apos;s microphone: {remoteHasAudio ? 'receiving' : 'no audio track yet'}
+            </p>
+            <p className="mb-0">
+              <i className={`bi me-1 ${isRemoteAudioOn ? 'bi-volume-up-fill text-success' : 'bi-volume-mute-fill text-warning'}`} />
+              Your speaker: {isRemoteAudioOn ? 'on' : 'muted — tap the speaker button to hear them'}
+            </p>
+          </div>
         </div>
       )}
     </>
@@ -171,6 +262,10 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
     isAudioMuted,
     isVideoOff,
     isScreenSharing,
+    hasMic,
+    hasCamera,
+    remoteHasAudio,
+    patientBrief,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
@@ -178,64 +273,62 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
     endCall,
   } = useTelehealthCall({ appointmentId: appointment.id, isDoctor, displayName });
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'info'>('chat');
+  const [activeTab, setActiveTab] = useState<PanelTab>('chat');
   const [chatInput, setChatInput] = useState('');
   const [isWrappingUp, setIsWrappingUp] = useState(false);
   const [completedNotes, setCompletedNotes] = useState<string | null>(null);
+  // In-call scratchpad, restored if the doctor reloaded mid-consultation.
+  const [clinicalNotes, setClinicalNotes] = useState(() => (isDoctor ? readDraftNotes(appointment.id) : ''));
 
   // Mobile chat: a floating button with an unread badge that opens a sheet.
   const [isChatSheetOpen, setIsChatSheetOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const seenMessageCountRef = useRef(0);
 
-  // Mobile browsers refuse to autoplay a stream that carries audio, which is
-  // exactly what leaves the doctor's tile black on a phone. Track that state so
-  // the video can be played muted and unmuted by a single tap.
-  const [remoteNeedsUnmute, setRemoteNeedsUnmute] = useState(false);
-  const [remotePlayBlocked, setRemotePlayBlocked] = useState(false);
+  // The peer's sound is played by a dedicated <audio> element rather than by
+  // the <video> tag. A video element that carries audio is refused autoplay,
+  // and the old code coped by muting it — which silenced the consultation. Now
+  // the picture always plays (muted video autoplay is unconditionally allowed)
+  // and only the audio element has to negotiate the autoplay policy.
+  const [isRemoteAudioOn, setIsRemoteAudioOn] = useState(true);
+  const [audioNeedsGesture, setAudioNeedsGesture] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
-  // ─── Attach the peer's stream and get it actually playing ──────────────────
+  // ─── Picture: always muted, so it can never be blocked ─────────────────────
   useEffect(() => {
     const el = remoteVideoRef.current;
+    if (!el) return;
+    if (el.srcObject !== remoteStream) el.srcObject = remoteStream;
+    el.muted = true;
+    if (remoteStream) el.play().catch(() => undefined);
+  }, [remoteStream]);
+
+  // ─── Sound: separate element, unmuted, with a gesture fallback ─────────────
+  useEffect(() => {
+    const el = remoteAudioRef.current;
     if (!el) return;
 
     if (el.srcObject !== remoteStream) el.srcObject = remoteStream;
     if (!remoteStream) {
-      setRemoteNeedsUnmute(false);
-      setRemotePlayBlocked(false);
+      setAudioNeedsGesture(false);
       return;
     }
 
     let cancelled = false;
 
     const attemptPlay = async () => {
-      // Preferred path: audible playback.
+      el.muted = !isRemoteAudioOn;
+      el.volume = 1;
       try {
-        el.muted = false;
         await el.play();
-        if (!cancelled) {
-          setRemoteNeedsUnmute(false);
-          setRemotePlayBlocked(false);
-        }
-        return;
+        if (!cancelled) setAudioNeedsGesture(false);
       } catch {
-        /* blocked by the browser's autoplay policy — fall through */
-      }
-
-      // Muted playback is always permitted, so the picture appears immediately
-      // and only the sound waits for the user's tap.
-      try {
-        el.muted = true;
-        await el.play();
-        if (!cancelled) {
-          setRemoteNeedsUnmute(true);
-          setRemotePlayBlocked(false);
-        }
-      } catch {
-        if (!cancelled) setRemotePlayBlocked(true);
+        // Autoplay policy — the picture is already running, so all that is
+        // missing is one tap to release the sound.
+        if (!cancelled) setAudioNeedsGesture(isRemoteAudioOn);
       }
     };
 
@@ -248,7 +341,7 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
       el.removeEventListener('loadedmetadata', attemptPlay);
       el.removeEventListener('canplay', attemptPlay);
     };
-  }, [remoteStream]);
+  }, [remoteStream, isRemoteAudioOn]);
 
   // Own preview: always muted (no echo), but iOS still needs an explicit play().
   useEffect(() => {
@@ -258,22 +351,46 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
     if (localStream) el.play().catch(() => undefined);
   }, [localStream]);
 
-  /** One tap satisfies the autoplay policy for the rest of the session. */
-  const handleEnableRemoteAudio = useCallback(() => {
-    const el = remoteVideoRef.current;
+  /** Speaker control. One tap also satisfies the autoplay policy for the session. */
+  const toggleRemoteAudio = useCallback(() => {
+    const el = remoteAudioRef.current;
+    const next = !isRemoteAudioOn;
+    setIsRemoteAudioOn(next);
     if (!el) return;
+    el.muted = !next;
+    if (next) {
+      el.play()
+        .then(() => setAudioNeedsGesture(false))
+        .catch(() => setAudioNeedsGesture(true));
+    }
+  }, [isRemoteAudioOn]);
+
+  const handleEnableRemoteAudio = useCallback(() => {
+    const el = remoteAudioRef.current;
+    if (!el) return;
+    setIsRemoteAudioOn(true);
     el.muted = false;
     el.play()
-      .then(() => {
-        setRemoteNeedsUnmute(false);
-        setRemotePlayBlocked(false);
-      })
-      .catch(() => setRemoteNeedsUnmute(true));
+      .then(() => setAudioNeedsGesture(false))
+      .catch(() => setAudioNeedsGesture(true));
   }, []);
 
-  // ─── Unread chat tracking (mobile floating button) ─────────────────────────
+  // The desktop sidebar is always on screen; the mobile sheet is not. Unread
+  // counting has to know which layout is actually rendered.
+  const [isWideLayout, setIsWideLayout] = useState(false);
   useEffect(() => {
-    if (isChatSheetOpen) {
+    const mq = window.matchMedia('(min-width: 992px)');
+    const update = () => setIsWideLayout(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // ─── Unread chat tracking ──────────────────────────────────────────────────
+  const chatIsVisible = (isWideLayout || isChatSheetOpen) && activeTab === 'chat';
+
+  useEffect(() => {
+    if (chatIsVisible) {
       seenMessageCountRef.current = messages.length;
       setUnreadCount(0);
       return;
@@ -281,7 +398,7 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
     const fresh = messages.slice(seenMessageCountRef.current).filter((m) => !m.isSystem && !m.isMine).length;
     seenMessageCountRef.current = messages.length;
     if (fresh > 0) setUnreadCount((count) => count + fresh);
-  }, [messages, isChatSheetOpen]);
+  }, [messages, chatIsVisible]);
 
   // Escape closes the sheet, and a sheet left open must not survive a hang-up.
   useEffect(() => {
@@ -327,8 +444,17 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
         <ConsultationWrapUp
           appointment={appointment}
           transcript={chatTranscript}
+          // Whatever the doctor typed while the call was running becomes the
+          // starting draft instead of being thrown away at hang-up.
+          liveNotes={clinicalNotes}
+          patientBrief={patientBrief}
           doctorName={appointment.doctor_name}
-          onSubmitted={(notes) => setCompletedNotes(notes)}
+          onSubmitted={(notes) => {
+            try {
+              window.localStorage.removeItem(draftNotesKey(appointment.id));
+            } catch {}
+            setCompletedNotes(notes);
+          }}
           onExitWithoutCompleting={onClose}
         />
       </div>
@@ -413,6 +539,7 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
 
   const panelProps: ConsultationPanelProps = {
     appointment,
+    isDoctor,
     messages,
     remoteName,
     activeTab,
@@ -422,6 +549,15 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
     onSendMessage: handleSendMessage,
     statusText: statusInfo.text,
     remoteParticipantLabel,
+    patientBrief,
+    clinicalNotes,
+    onClinicalNotesChange: setClinicalNotes,
+    chatTranscript,
+    unreadCount,
+    hasMic,
+    hasCamera,
+    remoteHasAudio,
+    isRemoteAudioOn,
   };
 
   return (
@@ -459,7 +595,11 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
             {/* Remote peer video — kept mounted at all times. A `display:none`
                 video cannot start playing on iOS, so the waiting state is an
                 overlay rather than a swap. */}
-            <video ref={remoteVideoRef} autoPlay playsInline className="thr-remote-video" />
+            <video ref={remoteVideoRef} autoPlay playsInline muted className="thr-remote-video" />
+
+            {/* Carries the peer's voice. Separate from the video so the picture
+                is never held hostage by the autoplay policy. */}
+            <audio ref={remoteAudioRef} autoPlay playsInline />
 
             {remoteStream ? (
               <span className="thr-name-tag badge bg-black bg-opacity-75 text-white d-inline-flex align-items-center gap-1">
@@ -495,11 +635,20 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
 
             {/* Sound is the only thing a phone's autoplay policy can hold back —
                 offer the one tap that releases it. */}
-            {remoteStream && (remoteNeedsUnmute || remotePlayBlocked) && (
+            {remoteStream && audioNeedsGesture && (
               <button type="button" className="thr-unmute btn btn-warning btn-sm rounded-pill shadow" onClick={handleEnableRemoteAudio}>
                 <i className="bi bi-volume-up-fill me-1" />
-                {remotePlayBlocked ? `Tap to start ${remoteName}'s video` : `Tap to hear ${remoteName}`}
+                Tap to hear {remoteName}
               </button>
+            )}
+
+            {/* The peer is connected but sending no audio at all — that is a
+                device problem on their end, not a speaker problem here. */}
+            {remoteStream && !remoteHasAudio && status === 'CONNECTED' && (
+              <div className="thr-audio-warning badge text-bg-warning text-dark shadow">
+                <i className="bi bi-mic-mute-fill me-1" />
+                {remoteName} is not sending any audio
+              </div>
             )}
 
             {/* Self view */}
@@ -537,7 +686,10 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
             <button
               type="button"
               className="thr-chat-fab btn btn-primary rounded-circle shadow-lg d-lg-none position-absolute"
-              onClick={() => setIsChatSheetOpen(true)}
+              onClick={() => {
+                setActiveTab('chat');
+                setIsChatSheetOpen(true);
+              }}
               aria-label={unreadCount > 0 ? `Open live chat, ${unreadCount} unread messages` : 'Open live chat'}
             >
               <i className="bi bi-chat-dots-fill fs-5" />
@@ -547,6 +699,22 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
                 </span>
               )}
             </button>
+
+            {/* The doctor's clinical panel needs its own way in on a phone —
+                the chat button alone would bury the intake record. */}
+            {isDoctor && (
+              <button
+                type="button"
+                className="thr-clinical-fab btn btn-warning rounded-circle shadow-lg d-lg-none position-absolute"
+                onClick={() => {
+                  setActiveTab('patient');
+                  setIsChatSheetOpen(true);
+                }}
+                aria-label="Open patient record, notes and AI assistant"
+              >
+                <i className="bi bi-clipboard2-pulse fs-5" />
+              </button>
+            )}
           </div>
 
           {/* ── Call controls ───────────────────────────────────────────────── */}
@@ -560,6 +728,18 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
               disabled={!localStream}
             >
               <i className={`bi ${isAudioMuted ? 'bi-mic-mute-fill' : 'bi-mic-fill'}`} />
+            </button>
+
+            {/* Speaker. Always present, so "I cannot hear them" is one tap away
+                rather than depending on a transient prompt. */}
+            <button
+              type="button"
+              className={`btn rounded-circle thr-ctl ${isRemoteAudioOn ? 'btn-secondary' : 'btn-danger'}`}
+              onClick={toggleRemoteAudio}
+              title={isRemoteAudioOn ? `Mute ${remoteName}` : `Unmute ${remoteName}`}
+              aria-label={isRemoteAudioOn ? `Mute ${remoteName}` : `Unmute ${remoteName}`}
+            >
+              <i className={`bi ${isRemoteAudioOn ? 'bi-volume-up-fill' : 'bi-volume-mute-fill'}`} />
             </button>
 
             <button

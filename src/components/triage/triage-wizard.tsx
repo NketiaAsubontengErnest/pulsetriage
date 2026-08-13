@@ -28,6 +28,8 @@ export const TriageWizard: React.FC<TriageWizardProps> = ({ onTriageComplete }) 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  /** Tells the patient when the AI was unreachable instead of failing silently. */
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   // Form State
   const [primarySymptom, setPrimarySymptom] = useState<string>('Chest Pain / Palpitations');
@@ -140,6 +142,7 @@ export const TriageWizard: React.FC<TriageWizardProps> = ({ onTriageComplete }) 
                 onClick={async () => {
                   if (!additionalNotes.trim()) return;
                   setIsSubmitting(true);
+                  setAiNotice(null);
                   try {
                     const res = await fetch('/api/ai/triage', {
                       method: 'POST',
@@ -158,10 +161,20 @@ export const TriageWizard: React.FC<TriageWizardProps> = ({ onTriageComplete }) 
                       if (data.triage.red_flags_detected?.length > 0) {
                         setSelectedRedFlags(data.triage.red_flags_detected);
                       }
+                      // A silent fallback is indistinguishable from a real AI
+                      // answer, so say which one this was.
+                      if (data.triage.ai_provenance?.method === 'fallback') {
+                        setAiNotice(
+                          'The AI models could not be reached, so this was filled in by the built-in rules rather than AI. Your assessment is still valid.'
+                        );
+                      }
                       setStep(3); // Jump straight to red flags / summary
+                    } else {
+                      setAiNotice(data.error || 'The AI assistant could not analyse your description. Please pick a symptom below instead.');
                     }
                   } catch (e) {
                     console.error(e);
+                    setAiNotice('Could not reach the AI assistant. Please pick a symptom below instead.');
                   } finally {
                     setIsSubmitting(false);
                   }
@@ -171,6 +184,14 @@ export const TriageWizard: React.FC<TriageWizardProps> = ({ onTriageComplete }) 
                 <span>AI Analyze &amp; Triage</span>
               </button>
             </div>
+
+            {aiNotice && (
+              <div className="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 small mt-2 mb-0" role="status">
+                <i className="bi bi-exclamation-triangle-fill mt-1 flex-shrink-0" />
+                <span className="flex-grow-1">{aiNotice}</span>
+                <button type="button" className="btn-close btn-sm" onClick={() => setAiNotice(null)} aria-label="Dismiss" />
+              </div>
+            )}
           </div>
 
           <p className="eyebrow mb-3">Or choose your primary symptom below:</p>

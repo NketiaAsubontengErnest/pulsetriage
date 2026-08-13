@@ -50,13 +50,9 @@ function UpcomingWorksContent() {
     fetchAppointments();
   }, [user]);
 
-  const handleLaunchVideoRoom = (app: Appointment) => {
-    try {
-      localStorage.setItem('pulsetriage_active_room_id', app.id);
-      window.dispatchEvent(new Event('storage'));
-    } catch {}
-    setActiveVideoApp(app);
-  };
+  // Presence is published by the room itself (see /api/room), so the patient
+  // sees "doctor is waiting" even from another device.
+  const handleLaunchVideoRoom = (app: Appointment) => setActiveVideoApp(app);
 
   const handleCheckInPatient = async (appId: string) => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -259,17 +255,10 @@ function UpcomingWorksContent() {
           appointment={activeVideoApp}
           isDoctor
           onClose={() => {
-            try {
-              localStorage.removeItem('pulsetriage_active_room_id');
-              window.dispatchEvent(new Event('storage'));
-            } catch {}
             setActiveVideoApp(null);
+            fetchAppointments();
           }}
           onConsultationCompleted={() => {
-            try {
-              localStorage.removeItem('pulsetriage_active_room_id');
-              window.dispatchEvent(new Event('storage'));
-            } catch {}
             setActiveVideoApp(null);
             fetchAppointments();
           }}

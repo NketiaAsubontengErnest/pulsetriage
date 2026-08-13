@@ -19,7 +19,10 @@ date: "12 August 2026"
 | **Date** | 12 August 2026 |
 | **System under test** | PulseTriage v1.0 |
 | **Live environment** | `https://pulsetriage.vercel.app` |
-| **Build verified** | Commit `000c32e` |
+| **Live results captured against** | The deployment as at 12 August 2026, 22:13 UTC |
+| **Local results captured against** | The working tree including the D-03 and D-02 fixes |
+
+> **Note on build currency.** The security probes in §5 and the live measurements in §4.2 were captured against the deployment as it stood on 12 August 2026. The D-03 and D-02 remediations described in §8 were made after that capture and **must be committed and redeployed before the live application reflects them**. Re-run `node tests/security-probe.mjs` after redeployment to refresh §5.
 
 ---
 
@@ -27,18 +30,21 @@ date: "12 August 2026"
 
 | Metric | Value |
 | :--- | :--- |
-| Total test cases specified | **72** |
-| Automated unit test cases executed | **22** (all passing) |
+| Total test cases specified | **75** |
+| Automated unit test cases executed | **24** (all passing) |
 | Static analysis checks | **1** (passing) |
 | Performance test cases | **3** (all within budget, comprising 14 measurements) |
-| Security test cases | **14** — 9 executed probes + 5 inspection checks (9 pass, 5 fail) |
+| Security test cases | **15** — 9 executed probes + 6 inspection checks (10 pass, 5 fail) |
 | Manual integration / system / UAT cases | **32** |
 | Defects raised | **8** |
-| Defects closed | **3** |
-| Defects open and tracked as technical debt | **5** |
+| Defects closed | **4** (D-03, D-06, D-07, D-08) |
+| Defects partially closed | **1** (D-02 — code fixed; credential rotation outstanding) |
+| Defects open and tracked as technical debt | **3** (D-01, D-04, D-05) |
 | Requirements with at least one executed test | 81 of 89 (91%) |
 
-**Overall verdict:** the system passes all functional testing for its stated demonstrator purpose, and **fails five security probes**. The security failures are not surprises — they are the executable proof of the CRITICAL items already recorded in the Technical Debt Plan (TD-01, TD-02, TD-03, TD-13). They are reported here with full reproduction steps precisely because a testing report that reports only passes is not a testing report.
+**Overall verdict:** the system passes all functional testing for its stated demonstrator purpose, and **fails five security probes**. The security failures are not surprises — they are the executable proof of the CRITICAL items already recorded in the Technical Debt Plan (TD-01, TD-03, TD-13). They are reported here with full reproduction steps precisely because a testing report that reports only passes is not a testing report.
+
+**Since the first issue of this report, two defects have been acted upon.** D-03, the single defect with direct clinical consequence, is **closed**: two red flags shown to patients now escalate correctly, guarded by three permanent tests. D-02 is **partially closed**: the credential material has been removed from the working tree and a pre-commit scanner now blocks recurrence, but rotating the exposed credentials and purging Git history remain outstanding owner actions (§8.2). Investigating D-02 also revealed that the exposure was **wider than first reported** — `.env`, containing the database connection string, was tracked by Git because `.gitignore` covered only `.env*.local`.
 
 **Fitness for purpose:** PulseTriage v1.0 is fit for demonstration and assessment. It is **not** fit to process real patient data until defects D-01 through D-05 are closed.
 
@@ -108,7 +114,7 @@ date: "12 August 2026"
 
 ## 3.1 Suite A — Production Rule Engine (`tests/triage-engine.unit.test.mts`)
 
-This suite imports and exercises **the actual production module** `src/lib/triage-engine.ts`. It was added during Phase 4 after review of the original suite revealed a significant weakness (defect D-06, §8).
+This suite imports and exercises **the actual production module** `src/lib/triage-engine.ts`. It was added during Phase 4 after review of the original suite revealed a significant weakness (defect D-06, §8). Three of its cases (TC-UNIT-03, TC-UNIT-13, TC-UNIT-14) were subsequently extended to close and permanently guard defect D-03.
 
 **Command:** `npm run test:unit` → `tsx --test tests/*.unit.test.mts`
 
@@ -116,7 +122,9 @@ This suite imports and exercises **the actual production module** `src/lib/triag
 | :--- | :--- | :--- | :--- | :--- | :---: |
 | **TC-UNIT-01** | FR-2.6 | Chest pain with red flag "radiating to arm/jaw" | `EMERGENCY`, score 95, redirect true, rule `RULE-001`, message cites emergency services | `EMERGENCY`, score 95, redirect true, `['RULE-001']`, message matched | **PASS** |
 | **TC-UNIT-02** | FR-2.6 | Pain reported as 1/10 but stroke red flag ticked | Red flag dominates the numeric score → `EMERGENCY` | `EMERGENCY`, redirect true, `['RULE-005']` | **PASS** |
-| **TC-UNIT-03** | FR-2.6 | Every published critical red flag is bound to an `EMERGENCY` rule | All 6 flags covered | Only 4 of 6 covered — 2 uncovered | **PASS** *(assertion documents the gap; see defect **D-03**)* |
+| **TC-UNIT-03** | FR-2.6 | Every published critical red flag is bound to an `EMERGENCY` rule | All 6 flags covered | All 6 covered | **PASS** *(was 4 of 6 — see defect **D-03**, now closed)* |
+| **TC-UNIT-13** | FR-2.6 | The two newly bound red flags each short-circuit on their own, at pain 2/10 | `EMERGENCY`, score 95, redirect true, `RULE-007` / `RULE-008` respectively | As expected for both | **PASS** |
+| **TC-UNIT-14** | FR-2.11 | The two new rules never win non-red-flag selection, at every severity 1–10 | `RULE-007` and `RULE-008` never selected without a red flag | Never selected | **PASS** |
 | **TC-UNIT-04** | FR-2.2, FR-2.5 | Score formula: severity × 8, +15 acute (≤ 2 d), +5 chronic (> 14 d), clamp 0–100 | 7/10 acute → 71; 10/10 acute → 95; 5/10 chronic → 45 | 71; 95; 45 | **PASS** |
 | **TC-UNIT-05** | FR-2.4 | Banding boundaries at 80 / 60 / 35 | 21→`ROUTINE`; 45→`SEMI_URGENT`; 69→`URGENT`; 95→`EMERGENCY` | Identical | **PASS** |
 | **TC-UNIT-06** | FR-2.2 | A non-critical red flag adds exactly 10 points | Difference of 10 | Difference of 10 | **PASS** |
@@ -130,23 +138,25 @@ This suite imports and exercises **the actual production module** `src/lib/triag
 **Executed output:**
 
 ```text
-✔ TC-UNIT-01 · FR-2.6 · red flag forces EMERGENCY, score 95 and booking suppression (11.5287ms)
-✔ TC-UNIT-02 · FR-2.6 · red flag overrides even a minimal-severity report (1.169ms)
-✔ TC-UNIT-03 · FR-2.6 · every published critical red flag is covered by an EMERGENCY rule (1.0098ms)
-✔ TC-UNIT-04 · FR-2.2/FR-2.5 · score = severity×8 + acute-onset bonus, clamped to 0..100 (0.833ms)
-✔ TC-UNIT-05 · FR-2.4 · banding thresholds 80 / 60 / 35 are applied (2.3866ms)
-✔ TC-UNIT-06 · FR-2.2 · a non-critical red flag contributes +10 per flag (1.2909ms)
-✔ TC-UNIT-07 · FR-2.11 · the highest priority_weight rule wins when several match (0.8333ms)
-✔ TC-UNIT-08 · FR-2.10 · deactivating a rule removes it from consideration (1.4868ms)
-✔ TC-UNIT-09 · FR-2.7 · every symptom category maps to a recommended specialty (1.1099ms)
-✔ TC-UNIT-10 · output contract holds for every urgency band (5.0064ms)
-✔ TC-UNIT-11 · the persistence adapter preserves the engine verdict (4.4388ms)
-✔ TC-UNIT-12 · evaluation is pure — identical input yields identical output (0.8058ms)
-ℹ tests 12
+✔ TC-UNIT-01 · FR-2.6 · red flag forces EMERGENCY, score 95 and booking suppression (9.3145ms)
+✔ TC-UNIT-02 · FR-2.6 · red flag overrides even a minimal-severity report (0.788ms)
+✔ TC-UNIT-03 · FR-2.6 · every published critical red flag is bound to an EMERGENCY rule (0.9057ms)
+✔ TC-UNIT-13 · FR-2.6 · each newly bound red flag short-circuits on its own (1.1053ms)
+✔ TC-UNIT-14 · FR-2.11 · the D-03 rules do not disturb existing rule selection (2.269ms)
+✔ TC-UNIT-04 · FR-2.2/FR-2.5 · score = severity×8 + acute-onset bonus, clamped to 0..100 (0.7357ms)
+✔ TC-UNIT-05 · FR-2.4 · banding thresholds 80 / 60 / 35 are applied (1.3443ms)
+✔ TC-UNIT-06 · FR-2.2 · a non-critical red flag contributes +10 per flag (1.932ms)
+✔ TC-UNIT-07 · FR-2.11 · the highest priority_weight rule wins when several match (1.0114ms)
+✔ TC-UNIT-08 · FR-2.10 · deactivating a rule removes it from consideration (1.2009ms)
+✔ TC-UNIT-09 · FR-2.7 · every symptom category maps to a recommended specialty (0.691ms)
+✔ TC-UNIT-10 · output contract holds for every urgency band (0.6965ms)
+✔ TC-UNIT-11 · the persistence adapter preserves the engine verdict (5.3402ms)
+✔ TC-UNIT-12 · evaluation is pure — identical input yields identical output (0.9621ms)
+ℹ tests 14
 ℹ suites 0
-ℹ pass 12
+ℹ pass 14
 ℹ fail 0
-ℹ duration_ms 1378.5777
+ℹ duration_ms 1771.1799
 ```
 
 > **📷 FIGURE 3.1 — INSERT SCREENSHOT HERE**
@@ -267,7 +277,8 @@ The practical conclusion is that the 200 ms budget in NFR-1 was set far too loos
 
 | ID | Requirement | Check | Expected | Actual | Verdict |
 | :--- | :--- | :--- | :--- | :--- | :---: |
-| **TC-SEC-02** | NFR-7 | No secret committed to the repository | Zero findings | A literal inference API key is present as a fallback in `src/lib/ai/ollama-client.ts` and in Git history | **FAIL** |
+| **TC-SEC-02** | NFR-7 | No secret in the working tree — `npm run scan:secrets` over all tracked files | Zero findings | **Zero findings.** Originally 3: a literal inference API key in `src/lib/ai/ollama-client.ts` (two occurrences), a tracked `.env` holding the database connection string, and a placeholder credential fallback in `src/lib/supabase/client.ts`. All removed | **PASS** *(working tree only — see TC-SEC-11)* |
+| **TC-SEC-11** | NFR-7 | No secret in **Git history** | Zero findings | The inference key remains in commits `e693d7d` and `5ea42ee`; the database connection string remains in `e693d7d` and `6278b76` | **FAIL — rotation and history purge outstanding, see D-02** |
 | **TC-SEC-03** | NFR-4 | Passwords stored only as bcrypt hashes, work factor ≥ 10 | bcrypt, cost 10 | `bcrypt.hash(password, 10)` in both auth routes; seed uses `hashSync(pw, 10)` | **PASS** |
 | **TC-SEC-04** | FR-9.2 | No internal error text reaches the client | Generic message only | `src/app/api/auth/login/route.ts` returns `error?.message` on HTTP 500 | **FAIL** |
 | **TC-SEC-05** | NFR-6, FR-1.5 | Session cannot be forged client-side | Session signed and server-verified | Unsigned JSON at `localStorage['pulsetriage_session']`; the `role` field is client-editable and no server-side check exists | **FAIL** |
@@ -416,8 +427,8 @@ The exposure is contained in the demonstrator only because every record in the d
 | ID | Title | Severity | Found by | Status | Corrective action | Debt ref. |
 | :--- | :--- | :---: | :--- | :---: | :--- | :--- |
 | **D-01** | Unauthenticated callers can read patient, clinical, appointment, financial and audit data through the public API | **Critical** | TC-SEC-01a–e | **OPEN** | Introduce signed-token authentication and a server-side permission layer over every route handler; add a role × endpoint regression matrix | TD-01 |
-| **D-02** | Inference API key committed to source as a literal fallback | **Critical** | TC-SEC-02 | **OPEN** | Revoke and rotate the key; remove the fallback and fail fast; purge Git history; add pre-commit secret scanning | TD-02 |
-| **D-03** | Two published critical red flags — "High fever (> 39.5 °C) with neck stiffness" and "Uncontrolled or heavy bleeding" — are presented to patients but are not bound to any `EMERGENCY` rule, so they contribute only +10 to the score instead of short-circuiting | **High** | TC-UNIT-03 | **OPEN** | Add `EMERGENCY` rules for suspected meningitis and for haemorrhage; add a permanent test asserting that every published red flag is bound to a rule | TD-04 |
+| **D-02** | Credentials committed to source. Scope was wider than first reported: (a) an inference API key as a literal fallback in `src/lib/ai/ollama-client.ts` (two occurrences); (b) **`.env`, containing the PostgreSQL connection string with its password, was tracked by Git** — `.gitignore` covered only `.env*.local`; (c) a placeholder credential fallback in `src/lib/supabase/client.ts` | **Critical** | TC-SEC-02 | **PARTIALLY CLOSED** | **Done:** all three removed from the working tree; `.env` untracked; `.gitignore` corrected; `.env.example` documents every variable; `scripts/scan-secrets.mjs` added and wired to a `.githooks/pre-commit` hook; full-tree scan now clean. **Outstanding (owner action):** rotate both credentials and purge Git history — see §8.2 | TD-02 |
+| **D-03** | Two published critical red flags — "High fever (> 39.5 °C) with neck stiffness" and "Uncontrolled or heavy bleeding" — were presented to patients by the intake wizard but were not bound to any `EMERGENCY` rule, so they contributed only +10 to the score instead of short-circuiting | **High** | TC-UNIT-03 | **CLOSED** | Added `RULE-007` (suspected meningitis) and `RULE-008` (haemorrhage) to `INITIAL_TRIAGE_RULES`, both `EMERGENCY` with the corresponding `red_flags_required`. TC-UNIT-03 inverted to assert **zero** uncovered flags and retained as a permanent regression barrier; TC-UNIT-13 verifies each new flag escalates independently at pain 2/10; TC-UNIT-14 verifies neither new rule disturbs existing non-red-flag selection at any severity | — |
 | **D-04** | Internal exception text returned to the client on HTTP 500 | **High** | TC-SEC-04 | **OPEN** | Centralise error responses; log server-side with a correlation id and return only a generic message | TD-13 |
 | **D-05** | Session profile is unsigned in browser storage; editing the `role` field grants administrator interface access, and with D-01 open, full administrator capability | **Critical** | TC-SEC-05 | **OPEN** | Replace with a server-issued signed token in an `HttpOnly` cookie; repay jointly with D-01 | TD-03 |
 | **D-06** | The original unit suite tested a *reimplementation* of the triage algorithm rather than the production module, so it could pass while the real engine was broken | **High** | Test review, Phase 4 | **CLOSED** | Added `tests/triage-engine.unit.test.mts`, which imports and exercises `src/lib/triage-engine.ts` directly. Twelve new cases, all passing. The original suite is retained for the supporting modules | — |
@@ -426,13 +437,30 @@ The exposure is contained in the demonstrator only because every record in the d
 
 ## 8.1 Defect Analysis
 
-**Distribution by severity:** of the 5 open defects, 3 are Critical (D-01, D-02, D-05) and 2 are High (D-03, D-04). Of the 3 closed during Phase 4, 1 was High (D-06) and 2 were Medium (D-07, D-08).
+**Distribution by severity:** of the 3 fully open defects, 2 are Critical (D-01, D-05) and 1 is High (D-04). D-02 is Critical and partially closed. Of the 4 closed, 2 were High (D-03, D-06) and 2 were Medium (D-07, D-08).
 
 **Distribution by discovery method:** the three closed defects were found by *functional* testing; **all five open defects were found by security probing and by test review, not by functional testing at all.** This is the single most useful observation in the report. The functional test suite was green while a complete authorisation bypass was live in production. Functional testing establishes that a system does what it should; it says nothing whatsoever about whether the system also does what it should not.
 
 **Root-cause pattern.** Four of the five open defects (D-01, D-02, D-04, D-05) share one cause: security work was implicitly scheduled last, and last never arrived within a 48-hour window. The corrective action at process level — not just at code level — is that the v1.1 release is a security release with no feature content, and that the role × endpoint authorisation matrix becomes a CI gate rather than a manual activity.
 
-**D-03 deserves separate comment.** It is the only defect with direct *clinical* consequence: a patient reporting suspected meningitis or uncontrolled bleeding is shown a red flag that implies the system takes it seriously, and the system then does not escalate. It was found only because TC-UNIT-03 was written to assert a *property* of the rule set ("every published flag is bound to a rule") rather than to test a specific case. No example-based test would have found it, because every example-based test used a flag that happened to be covered.
+**D-03 deserves separate comment.** It was the only defect with direct *clinical* consequence: a patient reporting suspected meningitis or uncontrolled bleeding was shown a red flag implying the system took it seriously, and the system then did not escalate. It was found only because TC-UNIT-03 was written to assert a *property* of the rule set ("every published flag is bound to a rule") rather than to test a specific case. No example-based test would have found it, because every example-based test used a flag that happened to be covered.
+
+It has since been **closed**, and the manner of the fix matters as much as the fix. The same property assertion that found the defect was inverted to demand zero uncovered flags and kept in the suite, so the defect cannot silently reappear if a future rule is deactivated or a seventh red flag is added to the wizard without a matching rule. TC-UNIT-14 was added alongside it because the new rules carry high priority weights and could otherwise have hijacked ordinary non-emergency rule selection — a fix that introduces a subtler regression than the defect it closes is not a fix.
+
+## 8.2 D-02 — Outstanding Owner Action
+
+The engineering half of D-02 is complete and verified: the working tree scans clean, `.env` is untracked, and a pre-commit hook now blocks recurrence. **The credential half is not, and cannot be closed from the codebase**, because deleting a secret from source does not remove it from history:
+
+| Action | Status | Note |
+| :--- | :---: | :--- |
+| Remove literals from the working tree | **Done** | Verified by TC-SEC-02 |
+| Untrack `.env`; correct `.gitignore` | **Done** | Only `.env.example` remains tracked |
+| Add secret scanning to the pre-commit hook | **Done** | `npm run hooks:install` |
+| **Rotate the Ollama inference API key** | **Outstanding** | Requires the owner's provider account |
+| **Rotate the PostgreSQL credential** | **Outstanding** | Requires the owner's database account |
+| **Purge both from Git history** | **Outstanding** | Rewrites history on a public repository; the owner's decision |
+
+Until the first two outstanding rows are complete, both credentials must be treated as compromised: the repository is public, and every commit remains retrievable.
 
 ---
 
@@ -458,7 +486,7 @@ The exposure is contained in the demonstrator only because every record in the d
 
 ## 10.1 Conclusions
 
-1. **The safety-critical component is well tested and correct.** The rule engine passes twelve dedicated tests covering every band, both boundary directions, the red-flag short-circuit, priority resolution, purity and the output contract, and it does so four orders of magnitude inside its latency budget.
+1. **The safety-critical component is well tested and correct.** The rule engine passes fourteen dedicated tests covering every band, both boundary directions, the red-flag short-circuit, priority resolution, purity and the output contract, and it does so four orders of magnitude inside its latency budget. The one clinical defect it did contain (D-03) was found by the suite and is now closed and permanently guarded.
 2. **All functional user journeys complete end-to-end** across all three roles, against the live deployment, including both the authorised and the declined payment paths.
 3. **Performance comfortably meets both stated budgets**, with cold starts rather than query cost identified as the dominant tail-latency factor.
 4. **Security does not meet the stated requirements.** Five probes fail, three defects are Critical, and the system must not process real patient data until they are closed.
@@ -468,8 +496,9 @@ The exposure is contained in the demonstrator only because every record in the d
 
 | Priority | Recommendation | Rationale |
 | :---: | :--- | :--- |
-| 1 | Close D-01, D-02, D-05 and D-04 before any further feature work | Three Critical defects, one of which exposes clinical and financial data to anonymous callers |
-| 2 | Close D-03 by binding every published red flag to an `EMERGENCY` rule | The only defect with a direct clinical safety consequence |
+| 0 | **Rotate the exposed inference and database credentials, then purge Git history** | The engineering half of D-02 is closed but both credentials are still live in a public repository's history |
+| 1 | Close D-01, D-05 and D-04 before any further feature work | Two remaining Critical defects, one of which exposes clinical and financial data to anonymous callers |
+| 2 | ~~Close D-03 by binding every published red flag to an `EMERGENCY` rule~~ — **done** | Was the only defect with a direct clinical safety consequence |
 | 3 | Add automated tests at the route-handler layer, starting with the role × endpoint authorisation matrix | The entire API layer currently has zero automated coverage, and this is exactly where the Critical defects live |
 | 4 | Re-baseline NFR-1 from 200 ms to 5 ms | The current budget cannot detect any realistic regression |
 | 5 | Add `axe-core` to CI and perform a manual assistive-technology pass | NFR-17 is the only requirement that was never assessed at all |
@@ -487,8 +516,14 @@ npm install
 # Suite B — supporting modules (10 cases)
 npm test
 
-# Suite A — production rule engine (12 cases)
+# Suite A — production rule engine (14 cases)
 npm run test:unit
+
+# Secret scan over every tracked file (TC-SEC-02)
+npm run scan:secrets
+
+# Install the pre-commit secret-scanning hook (once per clone)
+npm run hooks:install
 
 # Performance harness — NFR-1 (30,000 measured evaluations)
 npm run test:perf

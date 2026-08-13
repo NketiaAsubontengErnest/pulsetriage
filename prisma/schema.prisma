@@ -154,6 +154,36 @@ model Specialization {
   @@map("specializations")
 }
 
+// ─── Telehealth Room Signalling (WebRTC offer/answer/ICE + in-call chat) ─────
+model RoomSignal {
+  seq            Int      @id @default(autoincrement())
+  appointment_id String
+  sender_id      String   // per-session peer id (not the user id)
+  sender_role    String   // 'DOCTOR' | 'PATIENT'
+  sender_name    String
+  target_id      String? // null = broadcast to every peer in the room
+  type           String   // 'OFFER'|'ANSWER'|'ICE'|'CHAT'|'ENDED'|'LEAVE'
+  payload        String   @default("{}") // JSON encoded as string
+  created_at     DateTime @default(now())
+
+  @@index([appointment_id, seq])
+  @@map("room_signals")
+}
+
+// ─── Telehealth Room Presence (who is currently sitting in the room) ─────────
+model RoomPresence {
+  id             String   @id @default(cuid())
+  appointment_id String
+  peer_id        String
+  role           String // 'DOCTOR' | 'PATIENT'
+  name           String
+  last_seen      DateTime @default(now())
+
+  @@unique([appointment_id, peer_id])
+  @@index([appointment_id, last_seen])
+  @@map("room_presence")
+}
+
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 model AuditLog {
   id         String   @id @default(cuid())

@@ -273,7 +273,7 @@ No specialised hardware is required. The consultation room optionally accesses t
 | :--- | :--- | :--- | :--- |
 | **COM-1** | All client-server traffic shall use HTTPS with TLS 1.2 or higher. | Must | Implemented (platform-enforced) |
 | **COM-2** | All database connections shall be encrypted in transit. | Must | Implemented |
-| **COM-3** | All outbound LLM API calls shall be authenticated by bearer token supplied from environment configuration. | Must | **Partially implemented** — a literal fallback key exists in source; see TD-02 |
+| **COM-3** | All outbound LLM API calls shall be authenticated by bearer token supplied from environment configuration. | Must | Implemented — the literal fallback key recorded in TD-02 has been removed; the key is now read from the environment only, and a missing key degrades the feature to its deterministic fallback rather than issuing an unauthenticated call |
 
 ## 3.2 Functional Requirements
 
@@ -427,7 +427,7 @@ Priority uses MoSCoW. **Verified** means at least one executed test case in the 
 | **NFR-4** | Security | Passwords shall be stored only as bcrypt hashes with a work factor of at least 10. | Must | Source inspection + database inspection | Verified |
 | **NFR-5** | Security | All traffic shall be encrypted in transit (TLS 1.2+). | Must | TLS handshake inspection | Verified |
 | **NFR-6** | Security | Authorisation shall be enforced server-side on every request. | Must | Direct API probe bypassing the interface | **Failed — CRITICAL debt TD-01** |
-| **NFR-7** | Security | No secret shall be committed to the source repository. | Must | Repository scan | **Failed — CRITICAL debt TD-02** |
+| **NFR-7** | Security | No secret shall be committed to the source repository. | Must | Repository scan | **Working tree: passes** (`npm run scan:secrets`, zero findings). **Git history: fails** — credentials remain in prior commits pending rotation and purge. CRITICAL debt TD-02 |
 | **NFR-8** | Auditability | Every triage decision, booking, payment simulation and configuration change shall be logged with actor and timestamp. | Must | Audit-table inspection after a scripted run | Verified |
 | **NFR-9** | Usability | A first-time patient shall complete registration → triage → booking in under 5 minutes without assistance. | Must | Timed walkthrough with an unfamiliar user | Verified — see Testing Report §7 |
 | **NFR-10** | Usability | Urgency shall be conveyed by text label as well as colour. | Must | Interface inspection | Verified |
@@ -612,7 +612,7 @@ Criteria 1–7 are all satisfied. Criterion 7 is satisfied by disclosure, not by
 | Area | Simplification accepted | Repayment reference |
 | :--- | :--- | :--- |
 | Server-side authorisation | Enforcement at the interface layer only | TD-01 (Critical) |
-| Secret management | Literal fallback API key present in source | TD-02 (Critical) |
+| Secret management | Credentials in Git history awaiting rotation and purge (working tree now clean) | TD-02 (Critical) |
 | Session management | Profile in browser storage; no signed token, no expiry | TD-03 (Critical) |
 | Rule persistence | Administrator rule edits are session-scoped | TD-04 (High) |
 | Account lifecycle | No verification code, no password reset | TD-05 (High) |

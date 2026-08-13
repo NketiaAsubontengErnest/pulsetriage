@@ -5,7 +5,7 @@ import { Appointment } from '@/lib/types';
 import { DoctorBookingModal } from '@/components/booking/doctor-booking-modal';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointments, updateAppointment } from '@/lib/api';
+import { getActiveRooms, getAppointments, updateAppointment } from '@/lib/api';
 import { scheduleAppointmentReminders } from '@/lib/notifications';
 import { TelehealthVideoRoom } from '@/components/video/telehealth-video-room';
 
@@ -34,31 +34,15 @@ function PatientAppointmentsContent() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [activeVideoApp, setActiveVideoApp] = useState<Appointment | null>(null);
-  const [activeDoctorRoomId, setActiveDoctorRoomId] = useState<string | null>(null);
+  const [doctorsInRoom, setDoctorsInRoom] = useState<string[]>([]);
+  const [openNotesId, setOpenNotesId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const checkActiveRoom = () => {
-    try {
-      const activeId = localStorage.getItem('pulsetriage_active_room_id');
-      setActiveDoctorRoomId(activeId);
-    } catch {}
-  };
-
-  useEffect(() => {
-    checkActiveRoom();
-    window.addEventListener('storage', checkActiveRoom);
-    const interval = setInterval(checkActiveRoom, 2000);
-    return () => {
-      window.removeEventListener('storage', checkActiveRoom);
-      clearInterval(interval);
-    };
-  }, []);
-
-  const fetchAppointments = () => {
+  const fetchAppointments = (showSpinner = true) => {
     if (!user) return;
-    setIsLoading(true);
+    if (showSpinner) setIsLoading(true);
     getAppointments({ patient_id: user.id })
       .then(setAppointments)
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load appointments'))
@@ -68,6 +52,47 @@ function PatientAppointmentsContent() {
   useEffect(() => {
     fetchAppointments();
   }, [user]);
+
+  // Keep the list fresh so a consultation the doctor just signed off shows as
+  // COMPLETED without the patient reloading the page.
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => fetchAppointments(false), 15000);
+    const onFocus = () => fetchAppointments(false);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
+
+  // Server-side room presence: works even when the doctor is on another device.
+  useEffect(() => {
+    const joinableIds = appointments
+      .filter((a) => a.status === 'CONFIRMED' || a.status === 'PENDING_PAYMENT')
+      .map((a) => a.id);
+    if (joinableIds.length === 0) {
+      setDoctorsInRoom([]);
+      return;
+    }
+
+    let cancelled = false;
+    const poll = () => {
+      getActiveRooms(joinableIds)
+        .then((rooms) => {
+          if (cancelled) return;
+          setDoctorsInRoom(rooms.filter((r) => r.doctor_present).map((r) => r.appointment_id));
+        })
+        .catch(() => undefined);
+    };
+
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [appointments]);
 
   const handleBookingSuccess = (newOrUpdatedApp: Appointment) => {
     scheduleAppointmentReminders(newOrUpdatedApp);
@@ -182,7 +207,7 @@ function PatientAppointmentsContent() {
           <div className="row g-3">
             {confirmedApps.map((app) => {
               const isVideo = app.id.charCodeAt(app.id.length - 1) % 2 === 0;
-              const isDoctorInRoom = activeDoctorRoomId === app.id;
+              const isDoctorInRoom = doctorsInRoom.includes(app.id);
 
               return (
                 <div className="col-12 col-xl-6" key={app.id}>
@@ -326,17 +351,47 @@ function PatientAppointmentsContent() {
               </thead>
               <tbody>
                 {pastApps.map((app) => (
-                  <tr key={app.id}>
-                    <td className="fw-semibold">{app.doctor_name}</td>
-                    <td>{app.doctor_specialty}</td>
-                    <td>{app.appointment_date}</td>
-                    <td>{app.start_time}</td>
-                    <td className="text-end">
-                      <span className={`badge ${app.status === 'COMPLETED' ? 'text-bg-info' : 'text-bg-danger'}`}>
-                        {app.status}
-                      </span>
-                    </td>
-                  </tr>
+                  <React.Fragment key={app.id}>
+                    <tr>
+                      <td className="fw-semibold">{app.doctor_name}</td>
+                      <td>{app.doctor_specialty}</td>
+                      <td>{app.appointment_date}</td>
+                      <td>{app.start_time}</td>
+                      <td className="text-end">
+                        <div className="d-flex align-items-center justify-content-end gap-2">
+                          {app.status === 'COMPLETED' && app.notes && (
+                            <button
+                              className="btn btn-link btn-sm p-0 text-decoration-none"
+                              type="button"
+                              onClick={() => setOpenNotesId(openNotesId === app.id ? null : app.id)}
+                              aria-expanded={openNotesId === app.id}
+                            >
+                              <i className={`bi ${openNotesId === app.id ? 'bi-chevron-up' : 'bi-journal-text'} me-1`} />
+                              {openNotesId === app.id ? 'Hide notes' : 'Consultation notes'}
+                            </button>
+                          )}
+                          <span className={`badge ${app.status === 'COMPLETED' ? 'text-bg-info' : 'text-bg-danger'}`}>
+                            {app.status === 'COMPLETED' ? 'COMPLETED ✓' : app.status}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {openNotesId === app.id && app.notes && (
+                      <tr>
+                        <td colSpan={5} className="bg-light">
+                          <div className="p-2">
+                            <strong className="small d-block mb-1">
+                              <i className="bi bi-clipboard2-pulse me-1" />
+                              Clinical notes from {app.doctor_name}
+                            </strong>
+                            <pre className="small mb-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                              {app.notes}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -363,10 +418,15 @@ function PatientAppointmentsContent() {
         <TelehealthVideoRoom
           appointment={activeVideoApp}
           isDoctor={false}
-          onClose={() => setActiveVideoApp(null)}
+          onClose={() => {
+            setActiveVideoApp(null);
+            fetchAppointments(false);
+          }}
           onConsultationCompleted={() => {
             setActiveVideoApp(null);
-            fetchAppointments();
+            fetchAppointments(false);
+            setActionMessage('Your consultation is complete. The doctor’s clinical notes are in your appointment history below.');
+            setTimeout(() => setActionMessage(null), 8000);
           }}
         />
       )}

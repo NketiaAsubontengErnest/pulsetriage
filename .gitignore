@@ -1,5 +1,15 @@
 node_modules/
 .next/
-.env*.local
 build/
 dist/
+tsconfig.tsbuildinfo
+
+# Secrets — never commit any real environment file.
+# Only .env.example (placeholder values) belongs in the repository.
+.env
+.env.*
+!.env.example
+
+# NOTE: 22424715_PulseTriage/ is build output of docs/build-docx.ps1 but is
+# deliberately committed so the examiner receives the assembled package with
+# the repository. It is therefore NOT ignored.

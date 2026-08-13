@@ -58,7 +58,17 @@ test('TC-UNIT-02 · FR-2.6 · red flag overrides even a minimal-severity report'
   assert.deepEqual(result.matched_rules, ['RULE-005']);
 });
 
-test('TC-UNIT-03 · FR-2.6 · every published critical red flag is covered by an EMERGENCY rule', () => {
+test('TC-UNIT-03 · FR-2.6 · every published critical red flag is bound to an EMERGENCY rule', () => {
+  // REGRESSION BARRIER for defect D-03.
+  //
+  // Every flag in CRITICAL_RED_FLAGS is rendered to patients by the intake
+  // wizard. A flag that is offered but not bound to an active EMERGENCY rule
+  // silently degrades from "short-circuit to EMERGENCY" to "+10 points", which
+  // is a clinical safety failure rather than a cosmetic one.
+  //
+  // This assertion is deliberately a property over the WHOLE rule set rather
+  // than a set of example cases: D-03 existed precisely because every
+  // example-based test happened to use a flag that was already covered.
   const covered = new Set(
     INITIAL_TRIAGE_RULES.filter((r) => r.active && r.urgency_output === 'EMERGENCY').flatMap(
       (r) => r.red_flags_required ?? []
@@ -67,17 +77,43 @@ test('TC-UNIT-03 · FR-2.6 · every published critical red flag is covered by an
 
   const uncovered = CRITICAL_RED_FLAGS.filter((flag) => !covered.has(flag));
 
-  // Documented gap: three published red flags have no EMERGENCY rule bound to
-  // them, so they contribute only +10 to the score instead of short-circuiting.
-  // Recorded as defect D-03 in the Testing Report.
   assert.deepEqual(
     uncovered,
-    [
-      'High fever (> 39.5°C) with neck stiffness',
-      'Uncontrolled or heavy bleeding',
-    ],
-    'red-flag coverage changed — review defect D-03 before updating this expectation'
+    [],
+    `red flags shown to patients with no EMERGENCY rule bound to them: ${uncovered.join(' | ')}`
   );
+});
+
+test('TC-UNIT-13 · FR-2.6 · each newly bound red flag short-circuits on its own', () => {
+  // Verifies the two flags that closed D-03 escalate individually, at a pain
+  // score low enough that the numeric path alone could never reach EMERGENCY.
+  const cases: Array<[string, string]> = [
+    ['High fever (> 39.5°C) with neck stiffness', 'RULE-007'],
+    ['Uncontrolled or heavy bleeding', 'RULE-008'],
+  ];
+
+  for (const [flag, expectedRule] of cases) {
+    const result = evaluateSymptomTriage(base({ severity: 2, duration_days: 30, red_flags: [flag] }));
+
+    assert.equal(result.urgency_level, 'EMERGENCY', `${flag} did not escalate`);
+    assert.equal(result.severity_score, 95);
+    assert.equal(result.is_emergency_redirect, true);
+    assert.deepEqual(result.matched_rules, [expectedRule]);
+    assert.match(result.action_recommendation, /112|emergency room/i);
+  }
+});
+
+test('TC-UNIT-14 · FR-2.11 · the D-03 rules do not disturb existing rule selection', () => {
+  // RULE-007 and RULE-008 carry high priority weights. This asserts they never
+  // win the non-red-flag selection path away from the pre-existing rules, at
+  // every severity from 1 to 10.
+  for (let severity = 1; severity <= 10; severity++) {
+    const result = evaluateSymptomTriage(base({ severity, duration_days: 30, red_flags: [] }));
+    assert.ok(
+      !result.matched_rules.includes('RULE-007') && !result.matched_rules.includes('RULE-008'),
+      `severity ${severity} selected a D-03 emergency rule without any red flag ticked`
+    );
+  }
 });
 
 // ── FR-2.2 / FR-2.4 / FR-2.5 — scoring and banding ───────────────────────────

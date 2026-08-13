@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Appointment } from '@/lib/types';
-import { updateAppointment } from '@/lib/api';
+import { useTelehealthCall, CallStatus } from '@/lib/telehealth-call';
+import { ConsultationWrapUp } from './consultation-wrapup';
 
 interface TelehealthVideoRoomProps {
   appointment: Appointment;
@@ -11,12 +12,14 @@ interface TelehealthVideoRoomProps {
   onConsultationCompleted?: () => void;
 }
 
-interface ChatMessage {
-  sender: string;
-  text: string;
-  time: string;
-  isDoctor: boolean;
-}
+const STATUS_LABEL: Record<CallStatus, { text: string; badge: string }> = {
+  INITIALISING: { text: 'Starting camera…', badge: 'text-bg-secondary' },
+  WAITING: { text: 'Waiting for the other participant', badge: 'text-bg-warning' },
+  CONNECTING: { text: 'Connecting peers…', badge: 'text-bg-info' },
+  CONNECTED: { text: 'LIVE — peer to peer connected', badge: 'text-bg-danger' },
+  ENDED: { text: 'Call ended', badge: 'text-bg-secondary' },
+  FAILED: { text: 'Connection failed — retrying', badge: 'text-bg-danger' },
+};
 
 export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
   appointment,
@@ -24,147 +27,179 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
   onClose,
   onConsultationCompleted,
 }) => {
-  // Video / Audio Stream State
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'soap' | 'info'>('chat');
+  const displayName = (isDoctor ? appointment.doctor_name : appointment.patient_name) || (isDoctor ? 'Attending Doctor' : 'Patient');
+  const peerLabel = (isDoctor ? appointment.patient_name : appointment.doctor_name) || (isDoctor ? 'Patient' : 'Doctor');
 
-  // Media Stream References
+  const {
+    localStream,
+    remoteStream,
+    status,
+    remoteParticipant,
+    messages,
+    mediaError,
+    remoteEndedCall,
+    appointmentStatus,
+    appointmentNotes,
+    isAudioMuted,
+    isVideoOff,
+    isScreenSharing,
+    toggleAudio,
+    toggleVideo,
+    toggleScreenShare,
+    sendChatMessage,
+    endCall,
+  } = useTelehealthCall({ appointmentId: appointment.id, isDoctor, displayName });
+
+  const [activeTab, setActiveTab] = useState<'chat' | 'info'>('chat');
+  const [chatInput, setChatInput] = useState('');
+  const [isWrappingUp, setIsWrappingUp] = useState(false);
+  const [completedNotes, setCompletedNotes] = useState<string | null>(null);
+
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
-  const [hasMediaStream, setHasMediaStream] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // In-Call Chat State
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      sender: 'PulseTriage System',
-      text: 'Encrypted Telehealth Consultation Room Active. Room ID: ' + appointment.id,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isDoctor: false,
-    },
-  ]);
-
-  // Doctor SOAP Notes State
-  const [transcript, setTranscript] = useState(appointment.reason || '');
-  const [soapLoading, setSoapLoading] = useState(false);
-  const [soapResult, setSoapResult] = useState<any>(null);
-  const [isEnding, setIsEnding] = useState(false);
-
-  // Acquire Browser Camera/Mic Stream for bidirectional live video & audio call
   useEffect(() => {
-    let mediaStream: MediaStream | null = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+  }, [localStream]);
 
-    async function initCamera() {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = mediaStream;
-          }
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = mediaStream;
-          }
-          setHasMediaStream(true);
-        }
-      } catch (err) {
-        console.warn('Camera/Mic permission not granted or unavailable:', err);
-        setStreamError('Browser camera unavailable or permission pending. Operating in HD Simulated Feed mode.');
-      }
-    }
+  useEffect(() => {
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+  }, [remoteStream]);
 
-    initCamera();
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [messages]);
 
-    return () => {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
+  // The patient's view flips to "completed" the moment the doctor submits notes.
+  const isCompleted = appointmentStatus === 'COMPLETED' || completedNotes !== null;
 
-  const toggleAudio = () => {
-    const nextMuteState = !isAudioMuted;
-    setIsAudioMuted(nextMuteState);
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      stream.getAudioTracks().forEach((t) => (t.enabled = !nextMuteState));
-    }
-  };
+  const handleLeaveCompletedRoom = () => (onConsultationCompleted ? onConsultationCompleted() : onClose());
 
-  const toggleVideo = () => {
-    const nextVideoState = !isVideoOff;
-    setIsVideoOff(nextVideoState);
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      stream.getVideoTracks().forEach((t) => (t.enabled = !nextVideoState));
-    }
-  };
+  const chatTranscript = useMemo(
+    () =>
+      messages
+        .filter((m) => !m.isSystem)
+        .map((m) => `${m.sender}: ${m.text}`)
+        .join('\n'),
+    [messages]
+  );
 
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!chatInput.trim()) return;
-
-    const newMessage: ChatMessage = {
-      sender: isDoctor ? appointment.doctor_name || 'Dr. Specialist' : appointment.patient_name || 'Patient',
-      text: chatInput.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isDoctor,
-    };
-
-    setChatMessages((prev) => [...prev, newMessage]);
+    sendChatMessage(chatInput);
     setChatInput('');
   };
 
-  const handleGenerateInCallSoap = async () => {
-    if (!transcript.trim()) return;
-    setSoapLoading(true);
-    try {
-      const res = await fetch('/api/ai/soap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript, patientName: appointment.patient_name }),
-      });
-      const data = await res.json();
-      if (data.success) setSoapResult(data.soapNote);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSoapLoading(false);
-    }
+  const handleEndCall = () => {
+    endCall();
+    if (isDoctor) setIsWrappingUp(true);
   };
 
-  const handleEndConsultation = async () => {
-    setIsEnding(true);
-    try {
-      const clinicalNotesSummary = soapResult
-        ? `S: ${soapResult.subjective}\nO: ${soapResult.objective}\nA: ${soapResult.assessment}\nP: ${soapResult.plan}`
-        : transcript || 'Consultation completed via Telehealth Video Room.';
+  // ─── Doctor: post-call clinical documentation ────────────────────────────────
+  if (isDoctor && isWrappingUp && !completedNotes) {
+    return (
+      <div className="position-fixed top-0 start-0 w-100 h-100 bg-light" style={{ zIndex: 9999 }}>
+        <ConsultationWrapUp
+          appointment={appointment}
+          transcript={chatTranscript}
+          doctorName={appointment.doctor_name}
+          onSubmitted={(notes) => setCompletedNotes(notes)}
+          onExitWithoutCompleting={onClose}
+        />
+      </div>
+    );
+  }
 
-      await updateAppointment(appointment.id, {
-        status: 'COMPLETED',
-        notes: clinicalNotesSummary,
-        updated_by: isDoctor ? appointment.doctor_name : appointment.patient_name,
-      });
+  // ─── Both sides: consultation signed off ─────────────────────────────────────
+  if (isCompleted) {
+    const notes = completedNotes || appointmentNotes;
+    return (
+      <div
+        className="position-fixed top-0 start-0 w-100 h-100 bg-dark text-white d-flex align-items-center justify-content-center p-3 overflow-y-auto"
+        style={{ zIndex: 9999 }}
+      >
+        <div className="card bg-white text-dark border-0 shadow-lg rounded-4 w-100" style={{ maxWidth: '720px' }}>
+          <div className="card-body p-4 text-center">
+            <div
+              className="rounded-circle bg-success bg-opacity-10 mx-auto mb-3 d-flex align-items-center justify-content-center"
+              style={{ width: '80px', height: '80px' }}
+            >
+              <i className="bi bi-check2-circle text-success display-5" />
+            </div>
+            <h2 className="h5 fw-bold mb-1">Consultation Completed</h2>
+            <p className="text-muted small mb-3">
+              {isDoctor
+                ? `Your clinical notes were submitted and ${appointment.patient_name}'s appointment is now marked COMPLETED.`
+                : `Dr. ${appointment.doctor_name} has completed this consultation and signed off the clinical notes.`}
+            </p>
 
-      onConsultationCompleted?.();
-    } catch (err) {
-      console.error('Error completing appointment:', err);
-    } finally {
-      setIsEnding(false);
-      onClose();
-    }
-  };
+            <div className="d-flex flex-wrap justify-content-center gap-2 mb-3">
+              <span className="badge text-bg-info">{appointment.doctor_specialty}</span>
+              <span className="badge text-bg-secondary">
+                {appointment.appointment_date} · {appointment.start_time}
+              </span>
+              <span className="badge text-bg-success">COMPLETED</span>
+            </div>
+
+            {notes && (
+              <div className="text-start bg-light border rounded-3 p-3 mb-3" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                <h3 className="h6 fw-bold mb-2">
+                  <i className="bi bi-journal-text me-1" /> Consultation notes
+                </h3>
+                <pre className="small mb-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                  {notes}
+                </pre>
+              </div>
+            )}
+
+            <button type="button" className="btn btn-primary px-4" onClick={handleLeaveCompletedRoom}>
+              {isDoctor ? 'Back to Consultations' : 'Back to My Appointments'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Patient: doctor hung up, notes still being written ──────────────────────
+  if (!isDoctor && (remoteEndedCall || status === 'ENDED')) {
+    return (
+      <div
+        className="position-fixed top-0 start-0 w-100 h-100 bg-dark text-white d-flex align-items-center justify-content-center p-3"
+        style={{ zIndex: 9999 }}
+      >
+        <div className="text-center" style={{ maxWidth: '520px' }}>
+          <i className="bi bi-clipboard2-pulse display-4 text-info mb-3 d-block" />
+          <h2 className="h5 mb-2">The video consultation has ended</h2>
+          <p className="text-white-50 small mb-3">
+            Dr. {appointment.doctor_name} is writing up your clinical notes. This appointment will show as{' '}
+            <strong className="text-white">COMPLETED</strong> in your portal as soon as the notes are submitted — you can
+            wait here or close this room.
+          </p>
+          <div className="d-flex align-items-center justify-content-center gap-2 mb-3 small text-white-50">
+            <span className="spinner-border spinner-border-sm text-info" role="status" aria-hidden="true" />
+            <span>Waiting for the doctor to sign off…</span>
+          </div>
+          <button type="button" className="btn btn-outline-light" onClick={onClose}>
+            Close Room
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const statusInfo = STATUS_LABEL[status];
+  const remoteName = remoteParticipant?.name || peerLabel;
 
   return (
-    <div className="fixed-top w-100 h-100 bg-dark text-white z-50 d-flex flex-column" style={{ zIndex: 9999 }}>
+    <div className="position-fixed top-0 start-0 w-100 h-100 bg-dark text-white d-flex flex-column" style={{ zIndex: 9999 }}>
       {/* Top Bar */}
       <div className="bg-black bg-opacity-75 px-3 py-2 border-bottom border-secondary d-flex align-items-center justify-content-between">
         <div className="d-flex align-items-center gap-2">
-          <span className="badge text-bg-danger d-flex align-items-center gap-1">
-            <i className="bi bi-circle-fill spin text-white" style={{ fontSize: '8px' }} /> LIVE TELEHEALTH
+          <span className={`badge ${statusInfo.badge} d-flex align-items-center gap-1`}>
+            <i className="bi bi-circle-fill" style={{ fontSize: '8px' }} /> {statusInfo.text}
           </span>
           <span className="fw-semibold text-light small">
             Room #{appointment.id.slice(-6)} · {appointment.doctor_name} &amp; {appointment.patient_name}
@@ -173,7 +208,7 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
 
         <div className="d-flex align-items-center gap-2">
           <span className="badge text-bg-secondary font-mono">{appointment.doctor_specialty}</span>
-          <button type="button" className="btn btn-sm btn-outline-light" onClick={onClose}>
+          <button type="button" className="btn btn-sm btn-outline-light" onClick={onClose} aria-label="Leave room">
             <i className="bi bi-x-lg" />
           </button>
         </div>
@@ -183,44 +218,47 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
       <div className="flex-grow-1 d-flex flex-column flex-lg-row overflow-hidden">
         {/* Video Area */}
         <div className="flex-grow-1 bg-black p-3 d-flex flex-column position-relative justify-content-center align-items-center">
-          {/* Main Remote Feed (Peer Live Video Feed) */}
           <div className="w-100 h-100 rounded-3 overflow-hidden border border-secondary position-relative bg-dark d-flex align-items-center justify-content-center">
-            {isScreenSharing ? (
-              <div className="text-center p-4">
-                <i className="bi bi-display text-info display-1 mb-2" />
-                <h4 className="h5 text-light">Screen Sharing Active</h4>
-                <p className="small text-muted mb-0">Sharing clinical diagnostic charts and patient records</p>
-              </div>
-            ) : hasMediaStream ? (
-              <div className="w-100 h-100 position-relative bg-black">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-100 h-100 object-fit-cover"
-                />
-                <div className="position-absolute top-0 start-0 m-3 badge bg-black bg-opacity-75 text-white d-flex align-items-center gap-1.5 p-2">
-                  <i className="bi bi-camera-video-fill text-success" />
-                  <span>{isDoctor ? appointment.patient_name : appointment.doctor_name} (Live Consultation Stream)</span>
-                </div>
+            {/* Remote peer video — the other participant's real camera & mic */}
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-100 h-100 object-fit-cover"
+              style={{ display: remoteStream ? 'block' : 'none' }}
+            />
+
+            {remoteStream ? (
+              <div className="position-absolute top-0 start-0 m-3 badge bg-black bg-opacity-75 text-white d-flex align-items-center gap-1 p-2">
+                <i className="bi bi-camera-video-fill text-success" />
+                <span>{remoteName} · live</span>
               </div>
             ) : (
               <div className="text-center p-4">
                 <div
-                  className="rounded-circle bg-primary bg-opacity-20 mx-auto mb-3 d-flex align-items-center justify-content-center border border-primary"
+                  className="rounded-circle bg-primary bg-opacity-25 mx-auto mb-3 d-flex align-items-center justify-content-center border border-primary"
                   style={{ width: '100px', height: '100px' }}
                 >
                   <i className="bi bi-person-fill text-primary display-4" />
                 </div>
-                <h3 className="h5 mb-1 text-light">
-                  {isDoctor ? appointment.patient_name : appointment.doctor_name}
-                </h3>
-                <p className="small text-success mb-2">
-                  <i className="bi bi-shield-check me-1" /> HD Encrypted Stream Connected
-                </p>
-                <div className="d-inline-flex align-items-center gap-1 bg-black bg-opacity-50 px-3 py-1 rounded-full border border-secondary">
-                  <i className="bi bi-soundwave text-info" />
-                  <span className="small text-muted">Audio Active</span>
+                <h3 className="h5 mb-1 text-light">{remoteName}</h3>
+                {status === 'CONNECTING' ? (
+                  <p className="small text-info mb-2">
+                    <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" />
+                    Establishing encrypted peer-to-peer connection…
+                  </p>
+                ) : remoteParticipant ? (
+                  <p className="small text-warning mb-2">
+                    <i className="bi bi-hourglass-split me-1" /> {remoteName} is in the room — negotiating media…
+                  </p>
+                ) : (
+                  <p className="small text-warning mb-2">
+                    <i className="bi bi-hourglass-split me-1" /> Waiting for {peerLabel} to join this room…
+                  </p>
+                )}
+                <div className="d-inline-flex align-items-center gap-1 bg-black bg-opacity-50 px-3 py-1 rounded-pill border border-secondary">
+                  <i className="bi bi-shield-lock text-info" />
+                  <span className="small text-muted">End-to-end WebRTC media</span>
                 </div>
               </div>
             )}
@@ -230,40 +268,43 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
               className="position-absolute bottom-0 end-0 m-3 rounded-3 overflow-hidden border border-light shadow"
               style={{ width: '180px', height: '130px', backgroundColor: '#111' }}
             >
-              {isVideoOff ? (
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-100 h-100 object-fit-cover"
+                style={{ transform: isScreenSharing ? 'none' : 'scaleX(-1)', display: isVideoOff || !localStream ? 'none' : 'block' }}
+              />
+              {(isVideoOff || !localStream) && (
                 <div className="w-100 h-100 d-flex flex-column align-items-center justify-content-center text-muted">
                   <i className="bi bi-camera-video-off fs-4 mb-1" />
-                  <span style={{ fontSize: '10px' }}>Camera Off</span>
+                  <span style={{ fontSize: '10px' }}>{isVideoOff ? 'Camera Off' : 'No camera'}</span>
                 </div>
-              ) : (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-100 h-100 object-fit-cover"
-                  style={{ transform: 'scaleX(-1)' }}
-                />
               )}
-              <span className="position-absolute bottom-0 start-0 m-1 badge bg-black bg-opacity-75 text-white" style={{ fontSize: '9px' }}>
-                You ({isDoctor ? 'Doctor' : 'Patient'})
+              <span
+                className="position-absolute bottom-0 start-0 m-1 badge bg-black bg-opacity-75 text-white"
+                style={{ fontSize: '9px' }}
+              >
+                You ({isDoctor ? 'Doctor' : 'Patient'}){isScreenSharing ? ' · sharing screen' : ''}
               </span>
             </div>
           </div>
 
-          {streamError && (
+          {mediaError && (
             <div className="position-absolute top-0 start-0 m-4 alert alert-warning py-1 px-3 small opacity-75">
-              <i className="bi bi-info-circle me-1" /> {streamError}
+              <i className="bi bi-info-circle me-1" /> {mediaError}
             </div>
           )}
 
           {/* In-Call Controls Bar */}
-          <div className="py-3 d-flex align-items-center justify-content-center gap-2">
+          <div className="py-3 d-flex align-items-center justify-content-center gap-2 flex-wrap">
             <button
               type="button"
               className={`btn rounded-circle p-3 ${isAudioMuted ? 'btn-danger' : 'btn-secondary'}`}
               onClick={toggleAudio}
               title={isAudioMuted ? 'Unmute Mic' : 'Mute Mic'}
+              disabled={!localStream}
             >
               <i className={`bi fs-5 ${isAudioMuted ? 'bi-mic-mute-fill' : 'bi-mic-fill'}`} />
             </button>
@@ -273,6 +314,7 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
               className={`btn rounded-circle p-3 ${isVideoOff ? 'btn-danger' : 'btn-secondary'}`}
               onClick={toggleVideo}
               title={isVideoOff ? 'Turn Camera On' : 'Turn Camera Off'}
+              disabled={!localStream}
             >
               <i className={`bi fs-5 ${isVideoOff ? 'bi-camera-video-off-fill' : 'bi-camera-video-fill'}`} />
             </button>
@@ -280,144 +322,111 @@ export const TelehealthVideoRoom: React.FC<TelehealthVideoRoomProps> = ({
             <button
               type="button"
               className={`btn rounded-circle p-3 ${isScreenSharing ? 'btn-info text-white' : 'btn-secondary'}`}
-              onClick={() => setIsScreenSharing(!isScreenSharing)}
-              title="Toggle Screen Share"
+              onClick={toggleScreenShare}
+              title={isScreenSharing ? 'Stop sharing screen' : 'Share your screen'}
             >
               <i className="bi bi-display fs-5" />
             </button>
 
             <button
               type="button"
-              className="btn btn-danger px-4 py-2.5 rounded-pill d-flex align-items-center gap-2 font-medium ms-3"
-              onClick={handleEndConsultation}
-              disabled={isEnding}
+              className="btn btn-danger px-4 py-2 rounded-pill d-flex align-items-center gap-2 fw-medium ms-3"
+              onClick={handleEndCall}
             >
               <i className="bi bi-telephone-x-fill" />
-              <span>{isEnding ? 'Ending Call...' : 'End Consultation'}</span>
+              <span>{isDoctor ? 'End Call & Write Notes' : 'Leave Consultation'}</span>
             </button>
           </div>
         </div>
 
-        {/* Side Panel (Chat / AI SOAP Notes) */}
-        <div className="w-100 w-lg-350px border-start border-secondary bg-dark d-flex flex-column" style={{ maxWidth: '400px' }}>
-          {/* Side Panel Nav */}
+        {/* Side Panel (Chat / Info) */}
+        <div className="w-100 border-start border-secondary bg-dark d-flex flex-column" style={{ maxWidth: '400px' }}>
           <div className="nav nav-tabs nav-justified border-bottom border-secondary bg-black">
             <button
               type="button"
-              className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'chat' ? 'active bg-dark fw-bold border-bottom border-primary border-2' : 'opacity-75'}`}
+              className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'chat' ? 'active bg-dark fw-bold' : 'opacity-75'}`}
               onClick={() => setActiveTab('chat')}
             >
               <i className="bi bi-chat-dots me-1" /> Live Chat
             </button>
-
-            {isDoctor && (
-              <button
-                type="button"
-                className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'soap' ? 'active bg-dark fw-bold border-bottom border-primary border-2' : 'opacity-75'}`}
-                onClick={() => setActiveTab('soap')}
-              >
-                <i className="bi bi-stars text-warning me-1" /> AI SOAP Notes
-              </button>
-            )}
-
             <button
               type="button"
-              className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'info' ? 'active bg-dark fw-bold border-bottom border-primary border-2' : 'opacity-75'}`}
+              className={`nav-link text-white rounded-0 py-2 border-0 ${activeTab === 'info' ? 'active bg-dark fw-bold' : 'opacity-75'}`}
               onClick={() => setActiveTab('info')}
             >
               <i className="bi bi-info-circle me-1" /> Info
             </button>
           </div>
 
-          {/* Side Panel Content */}
           <div className="flex-grow-1 p-3 overflow-y-auto d-flex flex-column">
-            {activeTab === 'chat' && (
+            {activeTab === 'chat' ? (
               <div className="d-flex flex-column h-100">
                 <div className="flex-grow-1 overflow-y-auto mb-3 pe-1">
-                  {chatMessages.map((msg, index) => (
+                  <div className="mb-2 p-2 rounded-3 bg-secondary bg-opacity-25 text-center small text-muted">
+                    Encrypted telehealth consultation room · #{appointment.id.slice(-6)}
+                  </div>
+                  {messages.map((msg) => (
                     <div
-                      key={index}
-                      className={`mb-2.5 p-2.5 rounded-3 ${
-                        msg.sender === 'PulseTriage System'
-                          ? 'bg-secondary bg-opacity-20 text-center small text-muted'
-                          : (msg.isDoctor && isDoctor) || (!msg.isDoctor && !isDoctor)
+                      key={msg.id}
+                      className={`mb-2 p-2 rounded-3 ${
+                        msg.isSystem
+                          ? 'bg-secondary bg-opacity-25 text-center small text-muted'
+                          : msg.isMine
                             ? 'bg-primary text-white ms-4'
-                            : 'bg-secondary bg-opacity-40 text-light me-4'
+                            : 'bg-secondary bg-opacity-50 text-light me-4'
                       }`}
                     >
-                      {msg.sender !== 'PulseTriage System' && (
+                      {!msg.isSystem && (
                         <div className="d-flex align-items-center justify-content-between mb-1" style={{ fontSize: '11px' }}>
                           <span className="fw-bold opacity-75">{msg.sender}</span>
                           <span className="opacity-50">{msg.time}</span>
                         </div>
                       )}
-                      <p className="mb-0 small" style={{ wordBreak: 'break-word' }}>{msg.text}</p>
+                      <p className="mb-0 small" style={{ wordBreak: 'break-word' }}>
+                        {msg.text}
+                      </p>
                     </div>
                   ))}
+                  <div ref={chatEndRef} />
                 </div>
 
                 <form onSubmit={handleSendMessage} className="d-flex gap-2 border-top border-secondary pt-2">
                   <input
                     type="text"
-                    className="form-control form-control-sm bg-secondary bg-opacity-20 text-white border-secondary"
-                    placeholder="Type a message..."
+                    className="form-control form-control-sm bg-secondary bg-opacity-25 text-white border-secondary"
+                    placeholder={`Message ${remoteName}…`}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
+                    aria-label="Chat message"
                   />
                   <button type="submit" className="btn btn-primary btn-sm px-3">
                     <i className="bi bi-send-fill" />
                   </button>
                 </form>
               </div>
-            )}
-
-            {activeTab === 'soap' && isDoctor && (
-              <div className="d-flex flex-column gap-3">
-                <div>
-                  <label className="form-label small text-muted mb-1">Live Clinical Transcript / Symptoms:</label>
-                  <textarea
-                    rows={4}
-                    className="form-control form-control-sm bg-dark text-white border-secondary"
-                    value={transcript}
-                    onChange={(e) => setTranscript(e.target.value)}
-                    placeholder="Type or dictate patient presentation..."
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-warning btn-sm w-100 mt-2 fw-bold text-dark d-flex align-items-center justify-content-center gap-1.5"
-                    onClick={handleGenerateInCallSoap}
-                    disabled={soapLoading}
-                  >
-                    <i className="bi bi-stars" />
-                    <span>{soapLoading ? 'Generating SOAP Note...' : 'Generate AI SOAP Note'}</span>
-                  </button>
-                </div>
-
-                {soapResult && (
-                  <div className="card bg-secondary bg-opacity-20 border-secondary p-3 text-light small">
-                    <h6 className="fw-bold text-warning mb-2">Generated SOAP Summary</h6>
-                    <p className="mb-1"><strong>S:</strong> {soapResult.subjective}</p>
-                    <p className="mb-1"><strong>O:</strong> {soapResult.objective}</p>
-                    <p className="mb-1"><strong>A:</strong> {soapResult.assessment}</p>
-                    <p className="mb-0"><strong>P:</strong> {soapResult.plan}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'info' && (
+            ) : (
               <div className="small text-muted d-flex flex-column gap-2">
-                <div className="p-2.5 bg-secondary bg-opacity-20 rounded-3">
+                <div className="p-2 bg-secondary bg-opacity-25 rounded-3">
                   <strong className="text-light d-block mb-1">Consultation Details</strong>
                   <p className="mb-1">Doctor: {appointment.doctor_name}</p>
                   <p className="mb-1">Patient: {appointment.patient_name}</p>
                   <p className="mb-1">Specialty: {appointment.doctor_specialty}</p>
-                  <p className="mb-0">Time Slot: {appointment.start_time} - {appointment.end_time}</p>
+                  <p className="mb-0">
+                    Time slot: {appointment.start_time} – {appointment.end_time}
+                  </p>
                 </div>
 
-                <div className="p-2.5 bg-secondary bg-opacity-20 rounded-3">
+                <div className="p-2 bg-secondary bg-opacity-25 rounded-3">
                   <strong className="text-light d-block mb-1">Intake Reason</strong>
                   <p className="mb-0">{appointment.reason || 'General Telehealth Consultation'}</p>
+                </div>
+
+                <div className="p-2 bg-secondary bg-opacity-25 rounded-3">
+                  <strong className="text-light d-block mb-1">Connection</strong>
+                  <p className="mb-1">Status: {statusInfo.text}</p>
+                  <p className="mb-0">
+                    In room: You{remoteParticipant ? ` · ${remoteParticipant.name} (${remoteParticipant.role.toLowerCase()})` : ' only'}
+                  </p>
                 </div>
               </div>
             )}

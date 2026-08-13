@@ -20,7 +20,7 @@ Admin URL:          https://pulsetriage.vercel.app/admin
 
 Verified live and responding on 12 August 2026.
 Hosting platform:   Vercel (serverless, global edge)
-Deployed build:     commit 000c32e
+Deployment:         automatic on push to the main branch
 
 -----------------------------------------------------------------------------
 TEST CREDENTIALS
@@ -107,8 +107,25 @@ demonstrator, not undiscovered faults:
     yet carry two-way media between participants (TD-10).
   * Administrator triage-rule edits are session-scoped and do not affect
     the patient-facing engine (TD-04).
+  * Credentials committed early in the project remain in Git history pending
+    rotation and a history purge (TD-02). The working tree is clean and is
+    verified by "npm run scan:secrets".
   * The clinical rule content is illustrative and has NOT been validated by
     a qualified clinical advisor.
+
+Defects closed since first issue:
+
+  * D-03 (clinical) - "High fever with neck stiffness" and "Uncontrolled or
+    heavy bleeding" were shown to patients as red flags but were not bound to
+    any EMERGENCY rule, so they added 10 points instead of triggering the
+    safety short-circuit. RULE-007 and RULE-008 now bind them. Verify with:
+        npm run test:unit        (TC-UNIT-03, TC-UNIT-13, TC-UNIT-14)
+    Or in the live app: run a triage with pain 2/10 and tick "Uncontrolled or
+    heavy bleeding" - the result must be EMERGENCY with no booking offered.
+
+  * D-02 (security, code half) - hard-coded credentials removed from source,
+    .env untracked, .gitignore corrected, secret scanner added. Verify with:
+        npm run scan:secrets
 
 -----------------------------------------------------------------------------
 REPRODUCING THE BUILD LOCALLY

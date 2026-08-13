@@ -11,6 +11,8 @@
     "test:unit": "tsx --test tests/*.unit.test.mts",
     "test:perf": "tsx tests/perf-triage-engine.mjs",
     "test:all": "npm run test && npm run test:unit && npm run test:perf",
+    "scan:secrets": "node scripts/scan-secrets.mjs --all",
+    "hooks:install": "git config core.hooksPath .githooks",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

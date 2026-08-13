@@ -28,6 +28,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     });
 
+    // Signing off a consultation is what the patient portal shows as "done".
+    if (status === 'COMPLETED') {
+      await db.notification.create({
+        data: {
+          user_id: appointment.patient_id,
+          title: 'Consultation Completed',
+          message: `Your consultation with ${appointment.doctor?.user?.full_name || 'your doctor'} on ${appointment.appointment_date} is complete. The clinical notes are available in your appointment history.`,
+          type: 'APPOINTMENT',
+        },
+      }).catch(() => undefined);
+    }
+
     await db.auditLog.create({
       data: {
         actor: updated_by || 'SYSTEM',

@@ -61,7 +61,7 @@ Every item is classified along two axes.
 | ID | Debt item | Severity | Class | Effort (h) | Target |
 | :--- | :--- | :---: | :--- | :---: | :--- |
 | **TD-01** | No server-side authentication or authorisation on API endpoints | **CRITICAL** | Immediate | 24 | v1.1 |
-| **TD-02** | Literal API key committed to source as a fallback | **CRITICAL** | Immediate | 3 | v1.1 (hotfix) |
+| **TD-02** | Credentials committed to source — inference key **and** a tracked `.env` holding the database connection string | **CRITICAL** | Immediate | 3 | v1.1 (hotfix) — **code fixed; rotation and history purge outstanding** |
 | **TD-03** | Unsigned session profile in browser local storage | **CRITICAL** | Immediate | 16 | v1.1 |
 | **TD-13** | Internal error messages echoed to the client | **CRITICAL** | Immediate | 4 | v1.1 (hotfix) |
 | **TD-04** | Administrator triage-rule edits are session-scoped, not persisted | High | Scheduled | 20 | v1.2 |
@@ -105,19 +105,22 @@ Each item follows the required format: **Debt → Cause → Impact → Priority 
 
 ## TD-02 — Literal API key committed to source as a fallback
 
+> **STATUS: PARTIALLY CLOSED.** The code-side remediation is complete and verified. Credential rotation and Git-history purge remain outstanding and are owner actions — see "Remaining work" below.
+
 | Field | Detail |
 | :--- | :--- |
-| **Debt** | `src/lib/ai/ollama-client.ts` reads the inference API key from the environment but falls back to a hard-coded literal string when the variable is absent. That literal is committed to the Git repository and is therefore present in the repository history. |
-| **Where it lives** | `src/lib/ai/ollama-client.ts`, the `apiKey` initialisation. |
-| **Requirements violated** | NFR-7, COM-3 |
-| **Cause** | Convenience during rapid local development: the fallback removed the need to configure an environment variable on every machine and on the first deployment. The intention was to remove it before deployment; under time pressure that step was not taken. This is the one item in the register that is genuinely **Inadvertent & Reckless** — no engineering trade-off justifies it. |
-| **Impact** | The key is exposed to anyone with repository access, and it will remain in Git history even after the line is deleted from the working tree. Consequences are unauthorised inference consumption billed to the key owner, and potential rate-limit exhaustion causing the AI features to fail for legitimate users. Because the AI layer has deterministic fallbacks, the *availability* impact is contained; the *financial and credential* impact is not. |
+| **Debt** | Credentials committed to the repository. Remediation work established that the exposure was **wider than first recorded**, and all three findings are listed here rather than only the original one: (a) `src/lib/ai/ollama-client.ts` read the inference API key from the environment but fell back to a hard-coded literal in **two** places; (b) **`.env`, containing the PostgreSQL connection string including its password, was tracked by Git** — `.gitignore` covered only `.env*.local`, not `.env` itself; (c) `src/lib/supabase/client.ts` used the same literal-fallback pattern, with placeholder rather than live values. |
+| **Where it lived** | `src/lib/ai/ollama-client.ts` (lines 4 and 29 of the original); `.env` (tracked); `src/lib/supabase/client.ts` (lines 4–5 of the original); `.gitignore`. |
+| **Requirements violated** | NFR-7, COM-3, DP-3 |
+| **Cause** | Convenience during rapid local development: the fallbacks removed the need to configure environment variables on every machine and on the first deployment, and the `.gitignore` pattern was written from memory rather than verified. The intention was to correct both before deployment; under time pressure neither step was taken. This is the one item in the register that is genuinely **Inadvertent & Reckless** — no engineering trade-off justifies it. |
+| **Impact** | Both credentials are exposed to anyone with repository access, and they remain in Git history even after deletion from the working tree. For the inference key: unauthorised consumption billed to the owner and rate-limit exhaustion. For the database credential this is materially worse — a live connection string to the production datastore grants direct read and write access to every record, entirely bypassing the application. Combined with TD-01 this means the data layer was reachable by two independent routes. |
 | **Priority** | **CRITICAL — requires immediate attention.** |
 | **Fowler quadrant** | Inadvertent & Reckless. |
-| **Proposed resolution** | (1) **Revoke and rotate the exposed key immediately** — deletion from source is insufficient because history retains it. (2) Remove the literal fallback and fail fast at startup with a clear configuration error when the variable is absent. (3) Purge the secret from Git history using `git filter-repo`, then force-push and invalidate all clones. (4) Add a pre-commit secret-scanning hook (`gitleaks` or `trufflehog`) and enable repository-level secret scanning so the class of defect cannot recur. |
-| **Effort to repay** | 3 person-hours |
+| **Resolution — completed** | (1) Both literals removed from `ollama-client.ts`; the key is now read from the environment at call time only, and `queryOllama` raises an explicit configuration error when it is absent. That error is caught by `queryOllamaJson`, so an unconfigured environment degrades the AI feature to its deterministic fallback (FR-9.3) rather than failing the request or, worse, issuing an unauthenticated call. (2) `.env` untracked with `git rm --cached`; `.gitignore` corrected to ignore `.env` and `.env.*` while explicitly permitting `.env.example`. (3) `.env.example` rewritten to document every variable with placeholder values, so no developer needs to invent a fallback again. (4) The placeholder fallback in `supabase/client.ts` removed for the same reason. (5) `scripts/scan-secrets.mjs` added — nine credential-shape rules plus a rule matching the exact `process.env.X || 'literal'` anti-pattern that caused this defect — wired to `.githooks/pre-commit` and exposed as `npm run scan:secrets`. A full-tree scan now reports zero findings. |
+| **Resolution — remaining (owner action)** | (6) **Rotate the Ollama inference API key** at the provider. (7) **Rotate the PostgreSQL credential** and update `DATABASE_URL` in the Vercel environment. (8) **Purge both values from Git history** with `git filter-repo`, then force-push and invalidate all existing clones. Steps 6–8 require account access and a decision to rewrite the history of a public repository, so they sit with the repository owner. **Until steps 6 and 7 are done, both credentials must be treated as compromised** — deleting a secret from the working tree does not remove it from history, and the repository is public. |
+| **Effort to repay** | 3 person-hours — approximately 2 h completed, 1 h outstanding |
 | **Repayment milestone** | v1.1 — hotfix, ahead of all other work |
-| **Verification on repayment** | Test case TC-SEC-02 must invert from FAIL to PASS; a repository-wide secret scan must return zero findings. |
+| **Verification** | TC-SEC-02 (working tree) has inverted from FAIL to **PASS**. TC-SEC-11 (Git history) was added and remains **FAIL** until the purge is performed. |
 
 ---
 
@@ -161,7 +164,7 @@ Each item follows the required format: **Debt → Cause → Impact → Priority 
 
 | Field | Detail |
 | :--- | :--- |
-| **Debt** | The rule configurator at `/admin/rules` seeds its state from the `INITIAL_TRIAGE_RULES` constant and holds edits in React component state. Adding a rule, or toggling one active/inactive, affects only the current browser session and is lost on reload. The engine used by patients continues to read the compiled-in constant. |
+| **Debt** | The rule configurator at `/admin/rules` seeds its state from the `INITIAL_TRIAGE_RULES` constant and holds edits in React component state. Adding a rule, or toggling one active/inactive, affects only the current browser session and is lost on reload. The engine used by patients continues to read the compiled-in constant. **This is precisely why closing defect D-03 required a source change and a redeployment**, rather than a clinician correcting the rule set through the interface — the concrete cost of carrying this item. |
 | **Where it lives** | `src/app/admin/rules/page.tsx`; the rule source is `INITIAL_TRIAGE_RULES` in `src/lib/triage-engine.ts`. |
 | **Requirements violated** | FR-2.12 (partially), FR-2.13, NFR-11 |
 | **Cause** | The rules-as-data design goal was met at the *representation* level — rules are declarative records with thresholds, weights and active flags, exactly as FR-2.10 requires — but the persistence half (a `triage_rules` table, CRUD endpoints, versioning and a publish step) was cut when the effort estimate showed it would consume roughly 20 hours of the 46-hour budget. Representation was preserved because it is the part that is expensive to retrofit; persistence was deferred because it is mechanical. |
@@ -381,7 +384,8 @@ Repaying debt without changing the process that produced it merely resets the cl
 
 | Control | Prevents | Introduced at |
 | :--- | :--- | :--- |
-| Pre-commit secret scanning (`gitleaks`) | Recurrence of TD-02 | v1.1 |
+| Pre-commit secret scanning — `scripts/scan-secrets.mjs` via `.githooks/pre-commit`, including a rule matching the `process.env.X \|\| 'literal'` anti-pattern itself | Recurrence of TD-02 | **Implemented** |
+| Property-based rule-set assertion — TC-UNIT-03 fails the build if any red flag shown to patients lacks an `EMERGENCY` rule | Recurrence of D-03 | **Implemented** |
 | Role × endpoint authorisation test matrix in CI | Recurrence of TD-01 | v1.1 |
 | Lint rule forbidding raw error text in HTTP responses | Recurrence of TD-13 | v1.1 |
 | `axe-core` accessibility gate in CI | Recurrence of TD-09 | v1.3 |

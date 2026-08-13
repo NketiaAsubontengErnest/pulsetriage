@@ -32,7 +32,7 @@ This consolidated document is self-contained, but four companion documents conta
 | Document | Contents |
 | :--- | :--- |
 | `SRS.docx` | Complete IEEE 830-1998 Software Requirements Specification — 71 functional and 18 non-functional requirements (plus 16 external-interface requirements), each with a MoSCoW priority, a verification status and a full traceability matrix. |
-| `Testing_Report.docx` | 72 test cases, executed results, performance measurements, security probe evidence and the defect log. |
+| `Testing_Report.docx` | 75 test cases, executed results, performance measurements, security probe evidence and the defect log. |
 | `Technical_Debt_Plan.docx` | The 15-item technical debt register with the Debt → Cause → Impact → Priority → Resolution analysis and a costed repayment roadmap. |
 | `User_Manual.docx` | End-user operating instructions for all three roles. |
 
@@ -111,7 +111,7 @@ PulseTriage explicitly addresses **non-emergency outpatient triage and schedulin
 | **O3** | Build a deterministic, rules-as-data triage engine that scores 0–100, classifies into four tiers, and short-circuits on safety red flags. | Yes | `src/lib/triage-engine.ts`; 12 dedicated unit tests |
 | **O4** | Implement role-based portals for Patient, Doctor and Administrator over a persistent relational datastore. | Yes | 3 portals, 9 entities, 18 API endpoints |
 | **O5** | Implement booking with an abstracted, deterministic simulated payment gate and a notification queue. | Yes | `simulated-payment.ts`, `notifications.ts` |
-| **O6** | Test at unit, integration, system, security, performance and acceptance levels, and report failures as honestly as passes. | Yes | `Testing_Report.docx` — 72 cases, 8 defects raised including 3 Critical |
+| **O6** | Test at unit, integration, system, security, performance and acceptance levels, and report failures as honestly as passes. | Yes | `Testing_Report.docx` — 75 cases, 8 defects raised including 3 Critical; 4 closed |
 | **O7** | Identify, price, prioritise and schedule technical debt at the moment it is incurred, not retrospectively. | Yes | `Technical_Debt_Plan.docx` — 15 items, 246 person-hours costed |
 | **O8** | Deploy publicly with a managed cloud database and verify the live deployment. | Yes | <https://pulsetriage.vercel.app> — verified live |
 | **O9** | Produce a maintenance strategy and a costed 12-month evolution roadmap. | Yes | §15 and §16 |
@@ -661,7 +661,7 @@ The interface uses a single component vocabulary across all three portals — pa
 | Role separation (interface) | `AuthGuard` component with an allowed-roles list | ✔ |
 | **Role separation (API)** | **Server-side permission evaluation per request** | ✘ **TD-01** |
 | **Session integrity** | **Signed, expiring token in an `HttpOnly` cookie** | ✘ **TD-03** |
-| **Secret management** | **Environment-only, with no source fallback** | ✘ **TD-02** |
+| Secret management | Environment-only, with no source fallback; pre-commit secret scanning | ✔ *(working tree; credentials still in Git history pending rotation — TD-02)* |
 | **Error hygiene** | **Generic client messages; detail logged server-side** | ✘ **TD-13** |
 
 The four unmet controls are the subject of the v1.1 security release and are evidenced by executed probes in the Testing Report.
@@ -749,15 +749,15 @@ Full detail is in `Testing_Report.docx`. Summary:
 
 | Level | Cases | Result |
 | :--- | :---: | :--- |
-| Unit — production rule engine | 12 | **12 pass** |
+| Unit — production rule engine | 14 | **14 pass** |
 | Unit — supporting modules | 10 | **10 pass** |
 | Static type analysis | 1 | **Pass** — zero diagnostics |
 | Performance | 3 | **All within budget** (14 measurements) |
-| Security | 14 | **9 pass, 5 fail** |
+| Security | 15 | **10 pass, 5 fail** |
 | Integration | 13 | **13 pass** |
 | System | 14 | **11 pass, 3 partial** |
 | User acceptance | 5 | **5 pass** |
-| **Total** | **72** | |
+| **Total** | **75** | |
 
 **Headline measurements:**
 
@@ -765,7 +765,9 @@ Full detail is in `Testing_Report.docx`. Summary:
 - Live API p95: **425–1,167 ms** across seven targets, against a 2,000 ms budget.
 - Unauthenticated probes: **five endpoints returned 200 and disclosed protected data**.
 
-**Eight defects raised, three closed.** The most significant finding is **D-03**: two published critical red flags — suspected meningitis and uncontrolled bleeding — are presented to patients but are not bound to any `EMERGENCY` rule, so they contribute only 10 points instead of triggering the short-circuit. It was found by a *property-based* assertion ("every published red flag must be bound to an `EMERGENCY` rule") rather than by any example-based test, because every example test happened to use a flag that was covered.
+**Eight defects raised, four closed and one partially closed.** The most significant finding was **D-03**: two published critical red flags — suspected meningitis and uncontrolled bleeding — were presented to patients but were not bound to any `EMERGENCY` rule, so they contributed only 10 points instead of triggering the short-circuit. It was found by a *property-based* assertion ("every published red flag must be bound to an `EMERGENCY` rule") rather than by any example-based test, because every example test happened to use a flag that was covered. **It is now closed**, and the assertion that found it was inverted to demand zero uncovered flags and kept in the suite as a permanent barrier.
+
+**D-02 is partially closed, and investigating it widened the finding.** Beyond the inference API key already recorded, `.env` — containing the PostgreSQL connection string with its password — was tracked by Git, because `.gitignore` covered only `.env*.local`. All credential material has been removed from the working tree, `.env` untracked, `.gitignore` corrected, and a secret scanner wired to a pre-commit hook; a full-tree scan is clean. Rotating the two exposed credentials and purging Git history remain outstanding owner actions, and until they are done both credentials must be treated as compromised.
 
 **The most instructive observation from the whole testing effort:** all three closed defects were found by functional testing, and **all five open defects were found by security probing and by reviewing the tests themselves.** The functional suite was entirely green while a complete authorisation bypass was live in production. Functional testing establishes that a system does what it should. It says nothing about whether the system also does what it should not.
 
@@ -782,7 +784,7 @@ Full detail is in `Technical_Debt_Plan.docx`. Summary:
 | ID | Debt | Cause | Impact | Priority | Resolution |
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | **TD-01** | No server-side authentication or authorisation on any API endpoint | 24 h of the 36 h budget, producing no visible feature | Any anonymous caller can read patient, clinical, appointment, financial and audit data — **proven by executed probes** | **Critical** | Signed token in an `HttpOnly` cookie + middleware + declarative per-route permission table + a role × endpoint CI regression matrix (24 h) |
-| **TD-02** | Literal inference API key committed to source as a fallback | Local development convenience; removal step missed under time pressure | Credential exposed in Git history; unauthorised billed usage | **Critical** | Revoke and rotate; remove the fallback and fail fast; purge history; add pre-commit secret scanning (3 h) |
+| **TD-02** | Credentials committed to source: a literal inference API key, **and** a tracked `.env` holding the database connection string (`.gitignore` covered only `.env*.local`) | Local development convenience; `.gitignore` pattern written from memory rather than verified; removal step missed under time pressure | Both credentials exposed in the history of a public repository. The database connection string is the more severe of the two: it grants direct read/write access to every record, bypassing the application entirely | **Critical** | **Code fixed and verified:** literals removed, `.env` untracked, `.gitignore` corrected, secret scanner wired to a pre-commit hook, full-tree scan clean. **Outstanding owner action:** rotate both credentials and purge Git history (3 h total, ~1 h remaining) |
 | **TD-03** | Unsigned session profile in browser local storage | 15 minutes of work versus several hours for a cookie-based token scheme | Editing one word (`"role":"PATIENT"` → `"ADMIN"`) grants the administrator console; with TD-01 open, full administrator capability | **Critical** | Repay jointly with TD-01 (16 h) |
 | **TD-13** | Internal exception text returned to clients | Deliberate during deployment troubleshooting; removal overran | Schema and driver detail disclosed (OWASP A05) | **Critical** | Central error helper with correlation ids; lint rule to prevent recurrence (4 h) |
 
@@ -832,7 +834,7 @@ Choosing *where* to place the seam is the highest-leverage decision available wh
 | **Live application** | <https://pulsetriage.vercel.app> |
 | **Administrator console** | <https://pulsetriage.vercel.app/admin> |
 | **Source repository** | <https://github.com/NketiaAsubontengErnest/pulsetriage> |
-| **Verified build** | Commit `000c32e` |
+| **Verified live** | 12 August 2026 — all routes, API endpoints and seeded credentials confirmed working |
 
 ## 13.3 Examiner Test Credentials
 
@@ -1008,7 +1010,7 @@ Stated plainly, because a limitations section that lists only comfortable limita
 | # | Limitation | Consequence |
 | :--- | :--- | :--- |
 | **L1** | **The rule content has not been clinically validated.** The thresholds separating urgency bands are engineering placeholders. The mechanism is sound; the numbers carry no clinical authority. | The system must not be used for real triage until a qualified clinical advisor reviews and signs off the rule content. This is the single most important limitation in the document. |
-| **L2** | **Two published red flags do not escalate.** Suspected meningitis and uncontrolled bleeding are offered to patients as red flags but are not bound to any `EMERGENCY` rule (defect D-03). | A patient ticking either receives a score contribution of 10 rather than an emergency redirect. |
+| **L2** | ~~Two published red flags do not escalate.~~ **Closed.** Suspected meningitis and uncontrolled bleeding were offered to patients as red flags but were not bound to any `EMERGENCY` rule (defect D-03). `RULE-007` and `RULE-008` now bind them, and TC-UNIT-03 permanently asserts that every published flag is bound. | Resolved. Retained here because the underlying condition — that rule content ships compiled into the application and cannot be corrected by a clinician (TD-04) — still holds. |
 | **L3** | Triage depends entirely on accurate patient self-report. | A patient who understates pain, or does not recognise a red flag in their own presentation, will be under-triaged. No software can compensate for this. |
 | **L4** | The system covers common presentations only. Rare, atypical and paediatric presentations are not modelled. | Out-of-model presentations will be mis-scored. |
 
@@ -1018,7 +1020,7 @@ Stated plainly, because a limitations section that lists only comfortable limita
 | :--- | :--- | :--- |
 | **L5** | **No server-side authorisation.** Proven by executed probes: five endpoints return protected data to anonymous callers. | The system must not process real patient data in its current state. |
 | **L6** | **Sessions are client-forgeable.** An unsigned profile in browser storage, with a client-editable role field. | Trivial privilege escalation. |
-| **L7** | **A credential is present in the repository history.** | Requires rotation, not merely deletion. |
+| **L7** | **Two credentials remain in the repository history** — the inference API key and the database connection string. Both have been removed from the working tree and a pre-commit scanner now blocks recurrence, but history retains them. | Requires credential rotation and a history purge, not merely deletion. Until rotation is performed, both must be treated as compromised. |
 | **L8** | No rate limiting, account lockout or session expiry. | Brute-force and session-fixation exposure. |
 
 ## 17.3 Functional Limitations

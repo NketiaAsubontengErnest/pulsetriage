@@ -102,6 +102,40 @@ export const INITIAL_TRIAGE_RULES: DynamicTriageRule[] = [
     active: true,
     priority_weight: 10,
   },
+  // RULE-007 and RULE-008 close defect D-03. Both red flags below were already
+  // presented to patients by the intake wizard but were not bound to any
+  // EMERGENCY rule, so they contributed +10 to the score instead of triggering
+  // the safety short-circuit required by FR-2.6.
+  //
+  // A severity_threshold of 8 is used for both so that neither rule alters the
+  // existing non-red-flag rule-selection outcome for moderate presentations;
+  // the threshold is not consulted at all on the red-flag short-circuit path.
+  {
+    id: 'RULE-007',
+    category: 'INFECTIOUS',
+    symptom: 'High Fever with Neck Stiffness (suspected meningitis)',
+    severity_threshold: 8,
+    red_flags_required: ['High fever (> 39.5°C) with neck stiffness'],
+    urgency_output: 'EMERGENCY',
+    action_recommendation:
+      'Possible meningitis indicators (fever with neck stiffness)! Call 112 or proceed immediately to the nearest emergency room.',
+    recommended_specialty: 'Emergency Medicine / Infectious Disease',
+    active: true,
+    priority_weight: 98,
+  },
+  {
+    id: 'RULE-008',
+    category: 'TRAUMA',
+    symptom: 'Uncontrolled or Heavy Bleeding (haemorrhage)',
+    severity_threshold: 8,
+    red_flags_required: ['Uncontrolled or heavy bleeding'],
+    urgency_output: 'EMERGENCY',
+    action_recommendation:
+      'Uncontrolled bleeding detected! Apply firm direct pressure to the wound and call 112 or proceed immediately to the nearest emergency room.',
+    recommended_specialty: 'Emergency Medicine / Trauma',
+    active: true,
+    priority_weight: 97,
+  },
 ];
 
 export interface TriageInput {

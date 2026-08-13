@@ -56,6 +56,21 @@ export const createAppointment = (payload: Record<string, unknown>) =>
 export const updateAppointment = (id: string, payload: Record<string, unknown>) =>
   request<{ appointment: Appointment }>(`/api/appointments/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
 
+// ─── Telehealth rooms ───────────────────────────────────────────────────────
+export interface ActiveRoom {
+  appointment_id: string;
+  doctor_present: boolean;
+  patient_present: boolean;
+  participants: string[];
+}
+
+/** Which of these appointments currently have somebody sitting in the video room. */
+export const getActiveRooms = (appointmentIds: string[]) =>
+  appointmentIds.length === 0
+    ? Promise.resolve([] as ActiveRoom[])
+    : request<{ active_rooms: ActiveRoom[] }>(`/api/room?appointment_ids=${encodeURIComponent(appointmentIds.join(','))}`)
+        .then((d) => d.active_rooms);
+
 // ─── Triage ─────────────────────────────────────────────────────────────────
 export const getTriages = (patient_id?: string) =>
   request<{ triages: TriageAssessment[] }>(`/api/triage${qs({ patient_id })}`).then((d) => d.triages);

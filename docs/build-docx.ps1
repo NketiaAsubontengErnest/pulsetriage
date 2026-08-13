@@ -12,9 +12,27 @@ $root    = Split-Path -Parent $docs
 $out     = Join-Path $root '22424715_PulseTriage'
 $support = Join-Path $out 'Supporting_Files'
 
-# Rebuild from clean so repeated runs cannot nest copied folders inside themselves
-if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+# Only Supporting_Files is wiped, so repeated runs cannot nest copied folders
+# inside themselves. The .docx files are overwritten in place instead, which
+# keeps the failure mode clear when one of them is open in Word.
+if (Test-Path $support) { Remove-Item $support -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $out, $support | Out-Null
+
+# Fail early and legibly if a target document is locked by Word or a previewer
+$locked = @()
+foreach ($name in @('Project_Documentation.docx', 'SRS.docx', 'Testing_Report.docx',
+                    'Technical_Debt_Plan.docx', 'User_Manual.docx')) {
+    $path = Join-Path $out $name
+    if (-not (Test-Path $path)) { continue }
+    try {
+        $fs = [System.IO.File]::Open($path, 'Open', 'ReadWrite', 'None')
+        $fs.Close()
+    } catch { $locked += $name }
+}
+if ($locked.Count -gt 0) {
+    Write-Error ("Cannot write: {0}`n`nClose the file(s) in Word (or any preview pane) and re-run." -f ($locked -join ', '))
+    exit 1
+}
 
 $documents = @(
     @{ Src = 'Project_Documentation.md'; Dst = 'Project_Documentation.docx'; Toc = $true  },
@@ -58,6 +76,11 @@ Copy-Item (Join-Path $root 'tests')    $support -Recurse -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $support 'database') | Out-Null
 Copy-Item (Join-Path $root 'prisma\schema.prisma') (Join-Path $support 'database') -Force
 Copy-Item (Join-Path $root 'prisma\seed.ts')       (Join-Path $support 'database') -Force
+
+# Security tooling introduced to close TD-02 and prevent its recurrence
+New-Item -ItemType Directory -Force -Path (Join-Path $support 'security') | Out-Null
+Copy-Item (Join-Path $root 'scripts\scan-secrets.mjs') (Join-Path $support 'security') -Force
+Copy-Item (Join-Path $root '.githooks\pre-commit')     (Join-Path $support 'security\pre-commit.sh') -Force
 
 # Markdown sources travel with the package so the documents remain editable
 New-Item -ItemType Directory -Force -Path (Join-Path $support 'markdown-sources') | Out-Null

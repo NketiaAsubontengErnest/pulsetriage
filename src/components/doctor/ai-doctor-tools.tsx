@@ -4,7 +4,14 @@ import React, { useState } from 'react';
 import { AIProvenanceBadge } from '@/components/ai/ai-provenance-badge';
 
 export function AIDoctorTools() {
-  const [activeTab, setActiveTab] = useState<'soap' | 'lab' | 'noshow'>('soap');
+  const [activeTab, setActiveTab] = useState<'soap' | 'lab' | 'noshow' | 'ask'>('soap');
+
+  // Free-form clinical question State
+  const [askInput, setAskInput] = useState('');
+  const [askContext, setAskContext] = useState('');
+  const [askLoading, setAskLoading] = useState(false);
+  const [askResult, setAskResult] = useState<{ answer: string; provenance?: any } | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
 
   // SOAP State
   const [transcript, setTranscript] = useState('');
@@ -81,21 +88,42 @@ export function AIDoctorTools() {
     }
   };
 
+  const handleAsk = async () => {
+    if (!askInput.trim()) return;
+    setAskLoading(true);
+    setAskResult(null);
+    setAskError(null);
+
+    try {
+      const res = await fetch('/api/ai/consult', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: askInput, context: askContext }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAskResult({ answer: data.answer, provenance: data.ai_provenance });
+      } else {
+        // This endpoint has no canned fallback on purpose, so a failure here is
+        // a real failure and is shown as one.
+        setAskError(data.error || 'The AI models could not be reached.');
+      }
+    } catch (e) {
+      setAskError(`Could not reach the AI service: ${(e as Error).message}`);
+    } finally {
+      setAskLoading(false);
+    }
+  };
+
   return (
     <section className="panel mb-4">
       <div className="panel-header flex-wrap gap-2">
         <div>
           <h2 className="h5 mb-1 section-title">
-            <i className="bi bi-stars text-warning me-2" aria-hidden="true" />
-            <span>Clinical AI Suite</span>
-            <span className="badge text-bg-warning text-dark ms-2" style={{ fontSize: '10px' }}>
-              Ollama Cloud
-            </span>
+            <i className="bi bi-tools text-primary me-2" aria-hidden="true" />
+            <span>Tools</span>
           </h2>
-          <p className="text-muted mb-0">
-            Multi-model panel on Ollama Cloud • every request is answered by several models and the best-agreed answer
-            is shown
-          </p>
+          <p className="text-muted mb-0">Pick a tool — each one calls the model panel live.</p>
         </div>
 
         {/* Navigation Tabs (Bootstrap Nav Pills) */}
@@ -125,6 +153,15 @@ export function AIDoctorTools() {
           >
             <i className="bi bi-activity" aria-hidden="true" />
             <span>No-Show Predictor</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-link btn-sm d-flex align-items-center gap-1.5 ${activeTab === 'ask' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ask')}
+          >
+            <i className="bi bi-chat-square-text" aria-hidden="true" />
+            <span>Ask the AI</span>
           </button>
         </div>
       </div>
@@ -397,6 +434,96 @@ export function AIDoctorTools() {
                     ))}
                   </ul>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: Free-form clinical question */}
+      {activeTab === 'ask' && (
+        <div className="pt-2">
+          <div className="mb-3">
+            <label className="form-label fw-semibold" htmlFor="askQuestion">
+              Clinical question
+            </label>
+            <input
+              id="askQuestion"
+              className="form-control"
+              value={askInput}
+              onChange={(e) => setAskInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !askLoading) handleAsk();
+              }}
+              placeholder="e.g. First-line management of newly diagnosed type 2 diabetes in a 52-year-old with CKD stage 3?"
+            />
+          </div>
+
+          <div className="mb-3">
+            <label className="form-label fw-semibold" htmlFor="askContext">
+              Patient context <span className="text-muted fw-normal">(optional — symptoms, vitals, history, meds)</span>
+            </label>
+            <textarea
+              id="askContext"
+              className="form-control"
+              rows={3}
+              value={askContext}
+              onChange={(e) => setAskContext(e.target.value)}
+              placeholder="52F, BMI 31, eGFR 48, HbA1c 8.4%, on lisinopril 10mg OD. No retinopathy."
+            />
+          </div>
+
+          <div className="d-flex flex-wrap gap-2 mb-3">
+            {[
+              'Give the differential diagnoses, most likely first, with the discriminating feature for each.',
+              'What red flags must I rule out here?',
+              'Draft a treatment plan with exact drug names, doses, routes, frequencies and durations.',
+              'Which investigations would most change management?',
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                disabled={askLoading}
+                onClick={() => setAskInput(prompt)}
+              >
+                {prompt.split(' ').slice(0, 3).join(' ')}…
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-primary d-inline-flex align-items-center gap-2"
+            onClick={handleAsk}
+            disabled={askLoading || !askInput.trim()}
+          >
+            <i className={askLoading ? 'bi bi-arrow-repeat spin' : 'bi bi-stars text-warning'} aria-hidden="true" />
+            <span>{askLoading ? 'Consulting the model panel…' : 'Ask the AI panel'}</span>
+          </button>
+
+          {askError && (
+            <div className="alert alert-danger d-flex align-items-start gap-2 mt-3 py-2 px-3 small" role="alert">
+              <i className="bi bi-exclamation-octagon-fill mt-1" aria-hidden="true" />
+              <span>{askError}</span>
+            </div>
+          )}
+
+          {askResult && (
+            <div className="card mt-3 border-primary-subtle bg-light">
+              <div className="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span className="fw-bold text-primary">AI Panel Response</span>
+                <AIProvenanceBadge provenance={askResult.provenance} />
+              </div>
+              <div className="card-body">
+                <div className="p-3 bg-white border rounded">
+                  <p className="mb-0 small text-dark" style={{ whiteSpace: 'pre-wrap' }}>
+                    {askResult.answer}
+                  </p>
+                </div>
+                <p className="text-muted small mb-0 mt-2 fst-italic">
+                  Decision support only — confirm against your own judgement and local guidelines before acting.
+                </p>
               </div>
             </div>
           )}

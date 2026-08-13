@@ -1,5 +1,6 @@
 // Thin client-side wrapper around the /api routes backed by SQLite (Prisma).
 import { Appointment, Doctor, NotificationItem, PaymentLog, TriageAssessment, UserProfile } from './types';
+import type { WeeklyAvailability, DerivedSlot } from './schedule';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -28,6 +29,47 @@ export const createDoctor = (payload: Record<string, unknown>) =>
 
 export const updateDoctor = (id: string, payload: Record<string, unknown>) =>
   request<{ doctor: Doctor }>(`/api/doctors/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+
+// ─── Profile ────────────────────────────────────────────────────────────────
+export interface DoctorProfile {
+  specialization: string;
+  bio: string;
+  consultation_fee: number;
+  license_number: string;
+}
+
+export const getProfile = (user_id: string) =>
+  request<{ user: UserProfile; doctor: DoctorProfile | null }>(`/api/profile${qs({ user_id })}`);
+
+export const updateProfile = (payload: {
+  user_id: string;
+  full_name?: string;
+  phone?: string;
+  avatar_url?: string | null;
+  current_password?: string;
+  new_password?: string;
+  specialization?: string;
+  bio?: string;
+}) =>
+  request<{ success: boolean; user: UserProfile }>('/api/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+// ─── Doctor availability ────────────────────────────────────────────────────
+// `id` may be either the Doctor row id or the doctor's user id — the API
+// resolves both, because the doctor pages hold a session user and the booking
+// flow holds a doctor record.
+export const getDoctorSchedule = (id: string, date?: string) =>
+  request<{ doctor_id: string; availability: WeeklyAvailability[]; date?: string; slots?: DerivedSlot[] }>(
+    `/api/doctors/${id}/schedule${qs({ date })}`
+  );
+
+export const saveDoctorSchedule = (id: string, availability: WeeklyAvailability[]) =>
+  request<{ success: boolean; availability: WeeklyAvailability[] }>(`/api/doctors/${id}/schedule`, {
+    method: 'PUT',
+    body: JSON.stringify({ availability }),
+  });
 
 export const deleteDoctor = (id: string, deleted_by?: string) =>
   request<{ success: boolean }>(`/api/doctors/${id}`, { method: 'DELETE', body: JSON.stringify({ deleted_by }) });
@@ -100,6 +142,14 @@ export const getNotifications = (user_id: string) =>
 
 export const getAllNotifications = () =>
   request<{ notifications: NotificationRow[] }>('/api/notifications?all=true').then((d) => d.notifications);
+
+export const createNotifications = (
+  notifications: Array<{ user_id: string; title: string; message: string; type: NotificationItem['type'] }>
+) =>
+  request<{ success: boolean; notifications: NotificationRow[] }>('/api/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ notifications }),
+  });
 
 export const markNotificationRead = (id: string) =>
   request<{ success: boolean }>('/api/notifications', { method: 'PATCH', body: JSON.stringify({ id }) });

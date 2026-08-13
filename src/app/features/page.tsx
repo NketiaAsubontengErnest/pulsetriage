@@ -2,333 +2,285 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Faq } from '@/components/public/faq';
 
-const FEATURES = [
+const TIERS = [
   {
-    icon: 'bi-cpu',
-    ref: 'FR-2.3',
-    title: 'Symptom auto-triage rule engine',
-    copy: 'Evaluates symptom inputs against a rules-as-data configuration, calculates a 0–100 severity score, screens red flags and classifies each case into one of four urgency tiers.',
-  },
-  {
-    icon: 'bi-shield-exclamation',
-    ref: 'FR-2.5',
-    title: 'Red-flag safety screening',
-    copy: 'Six critical indicators short-circuit the calculation to EMERGENCY at score 95 and replace the booking call-to-action with emergency service contact details.',
-  },
-  {
-    icon: 'bi-calendar2-check',
-    ref: 'FR-3.1 / FR-3.6',
-    title: 'Atomic doctor slot booking',
-    copy: 'Doctor availability is divided into 30-minute consultation windows, and clinicians can block or release individual slots around clinical commitments.',
-  },
-  {
-    icon: 'bi-credit-card',
-    ref: 'Technical Debt #1',
-    title: 'Simulated payment gateway',
-    copy: 'Mobile Money and card checkout producing realistic transaction references, behind an interface ready for a Paystack or Hubtel integration.',
-  },
-  {
-    icon: 'bi-bell',
-    ref: 'Technical Debt #2 · FR-6.3',
-    title: 'Notification dispatch queue',
-    copy: 'Triage results, booking confirmations, payment receipts and reminders queue through a stream administrators can inspect and retry.',
-  },
-  {
-    icon: 'bi-file-earmark-text',
-    ref: 'FR-4.5',
-    title: 'Immutable audit trail',
-    copy: 'Every registration, triage submission, booking, payment and administrative action appends an audit record with actor, entity and timestamp.',
-  },
-];
-
-const BANDS = [
-  {
-    tier: 'EMERGENCY',
+    tier: 'Emergency',
+    tone: 'lp-tier-emergency',
     range: '80 – 100',
-    action: 'Redirect to emergency services — booking is withheld.',
-    tone: 'urgency-emergency',
-    width: '100%',
-    bar: 'bg-danger',
+    meaning: 'A red-flag indicator, or a severe presentation of sudden onset.',
+    action: 'Booking is withheld and the patient is directed to emergency services immediately.',
   },
   {
-    tier: 'URGENT',
+    tier: 'Urgent',
+    tone: 'lp-tier-urgent',
     range: '60 – 79',
-    action: 'Consultation within 24 hours.',
-    tone: 'urgency-urgent',
-    width: '75%',
-    bar: 'bg-warning',
+    meaning: 'Significant symptoms that should not wait for a routine slot.',
+    action: 'Fast-tracked to the earliest available consultation, typically the same day.',
   },
   {
-    tier: 'SEMI_URGENT',
+    tier: 'Semi-urgent',
+    tone: 'lp-tier-semi',
     range: '35 – 59',
-    action: 'Consultation within 48 hours.',
-    tone: 'urgency-semi_urgent',
-    width: '50%',
-    bar: 'bg-warning',
+    meaning: 'Moderate symptoms warranting review, but not same-hour attention.',
+    action: 'Offered a same-day or next-day appointment with the recommended specialty.',
   },
   {
-    tier: 'ROUTINE',
+    tier: 'Routine',
+    tone: 'lp-tier-routine',
     range: '0 – 34',
-    action: 'Standard outpatient slot within 7 days.',
-    tone: 'urgency-routine',
-    width: '28%',
-    bar: 'bg-success',
+    meaning: 'Mild or long-standing complaints, follow-ups and check-ups.',
+    action: 'Booked into standard consulting hours at the patient’s convenience.',
   },
 ];
 
 const SCORING = [
-  { factor: 'Reported severity (1–10)', weight: 'up to +80', icon: 'bi-sliders' },
-  { factor: 'Acute onset within 2 days', weight: '+15', icon: 'bi-lightning' },
-  { factor: 'Long-standing complaint (14 days+)', weight: '+5', icon: 'bi-clock-history' },
-  { factor: 'Each red-flag indicator', weight: '+10', icon: 'bi-flag' },
+  { factor: 'Reported severity (1–10)', weight: 'up to 80 points', note: 'The patient’s own rating, weighted eight points per level.' },
+  { factor: 'Acute onset (under 2 days)', weight: '+15 points', note: 'Sudden onset raises priority; a long-standing complaint adds 5 instead.' },
+  { factor: 'Each red flag selected', weight: '+10 points', note: 'Non-critical warning signs accumulate on top of the base score.' },
+  { factor: 'Critical red flag', weight: 'overrides to 95', note: 'Chest pain radiating to the arm or jaw, stroke signs and four others short-circuit everything above.' },
 ];
 
-const ROLE_MATRIX = [
+const CAPABILITIES = [
   {
-    role: 'Patient',
-    icon: 'bi-person-heart',
-    items: [
-      'Symptom auto-triage wizard',
-      'Verified specialist directory',
-      'Slot booking and simulated checkout',
-      'Appointment history, reschedule and cancel',
-    ],
+    icon: 'bi-cpu',
+    title: 'Deterministic triage engine',
+    copy: 'Thresholds, priority weights and red-flag short-circuits held as data rather than code branches. The same input always produces the same verdict, and the reasoning is readable.',
   },
   {
-    role: 'Doctor',
-    icon: 'bi-clipboard2-pulse',
-    items: [
-      'Urgency-sorted consultation queue',
-      'Triage summary ahead of each consult',
-      'Clinical notes and completion sign-off',
-      'Schedule slot manager',
-    ],
+    icon: 'bi-shield-exclamation',
+    title: 'Red-flag safety screening',
+    copy: 'Six critical indicators escalate straight to Emergency, replace the booking call-to-action with emergency contact details, and are covered by their own tests.',
   },
   {
-    role: 'Administrator',
-    icon: 'bi-shield-check',
-    items: [
-      'Doctor verification and licensing',
-      'Patient EHR and triage overview',
-      'Dynamic rule configurator and simulator',
-      'System audit and dispatch logs',
-    ],
+    icon: 'bi-calendar2-week',
+    title: 'Availability-bound scheduling',
+    copy: 'Each clinician publishes weekday consulting hours and slot lengths. Bookable slots are generated from those hours, and the database itself refuses a second booking of the same slot.',
+  },
+  {
+    icon: 'bi-camera-video',
+    title: 'Secure video consultations',
+    copy: 'Peer-to-peer telehealth rooms with live chat, screen sharing, and the patient’s intake record and a clinical notepad beside the call.',
+  },
+  {
+    icon: 'bi-stars',
+    title: 'Multi-model clinical AI',
+    copy: 'Several models answer each request in parallel; the best-agreed answer is shown, tagged with which model produced it and how strongly the panel agreed.',
+  },
+  {
+    icon: 'bi-journal-medical',
+    title: 'Structured clinical record',
+    copy: 'Consultations are signed off as a full SOAP note with ICD-10 suggestions, prescriptions and follow-up, then attached to the patient file.',
+  },
+  {
+    icon: 'bi-credit-card',
+    title: 'Checkout and reconciliation',
+    copy: 'Mobile Money and card flows produce realistic transaction references and status transitions, logged against the appointment. The provider integration is simulated and documented as such.',
+  },
+  {
+    icon: 'bi-file-earmark-text',
+    title: 'Audit trail',
+    copy: 'Registrations, assessments, bookings, payments, profile changes and administrative actions all append an audit row with actor, entity and timestamp.',
+  },
+  {
+    icon: 'bi-people',
+    title: 'Role-separated portals',
+    copy: 'Patients, clinicians and administrators each see only their own surface, with licence verification gating a doctor’s ability to accept bookings.',
   },
 ];
 
-const DEBT = [
+const RELIABILITY = [
   {
-    title: 'Simulated payment gateway',
-    priority: 'HIGH',
-    tone: 'text-bg-danger',
-    cause: 'Merchant account activation and public webhook listeners were out of reach inside the examination window.',
-    payback: 'Paystack REST API v2 and Hubtel checkout with HMAC SHA-256 webhook verification.',
+    title: 'Transactional writes',
+    copy: 'A booking writes the appointment, the clinician’s notification and the audit row inside a single transaction. A failure part-way leaves nothing behind.',
   },
   {
-    title: 'Simplified notification queue',
-    priority: 'MEDIUM',
-    tone: 'text-bg-warning',
-    cause: 'Avoided introducing an external Redis broker and a paid SMS gateway dependency.',
-    payback: 'A Redis-backed BullMQ job queue with dedicated SMS and email workers.',
+    title: 'Guaranteed unique slots',
+    copy: 'Beyond the availability check, a unique database constraint reserves each slot. Concurrent attempts on one slot cannot both succeed.',
   },
   {
-    title: 'Client-side rule execution',
-    priority: 'LOW',
-    tone: 'text-bg-secondary',
-    cause: 'Prioritised instant feedback while the patient fills in the symptom questionnaire.',
-    payback: 'Extract the engine into a service backed by database-stored decision tables.',
+    title: 'Indexed query paths',
+    copy: 'Slot generation, patient history, the notification tray and the audit view are each backed by an index rather than a full table scan.',
+  },
+  {
+    title: 'Server-side validation',
+    copy: 'Availability, dates and slot times are re-checked on the server. A stale tab or a direct API call cannot book something the picker would not offer.',
+  },
+];
+
+const FAQS = [
+  {
+    question: 'What happens if I select a red-flag symptom?',
+    answer:
+      'The assessment stops immediately, returns Emergency at a score of 95, and replaces the booking button with emergency service contact details. No appointment can be made from that assessment.',
+  },
+  {
+    question: 'Can I change my mind after booking?',
+    answer:
+      'Yes. Confirmed appointments can be rescheduled or cancelled from your portal at no additional charge. Rescheduling re-checks availability, so you can only move to a slot that is genuinely free.',
+  },
+  {
+    question: 'How does the clinician see my information?',
+    answer:
+      'Your intake record — symptoms, duration, pain score and any red flags — is shown beside the video call along with notes from your previous consultations, so the appointment begins already informed.',
+  },
+  {
+    question: 'Is the AI making clinical decisions?',
+    answer:
+      'No. AI drafts notes and offers decision support to the attending clinician, who reviews and edits everything before signing. Each answer carries the models that produced it and their agreement score, and when the models are unreachable the system says so rather than substituting a template.',
   },
 ];
 
 export default function FeaturesPage() {
   return (
-    <>
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="public-hero">
-        <div className="hero-grid hero-split">
-          <div>
-            <p className="eyebrow mb-2">
-              <i className="bi bi-activity me-1" aria-hidden="true" />
-              Core capabilities
-            </p>
-            <h1 className="hero-title">
-              A triage engine you can <span className="accent">read line by line</span>
-            </h1>
-            <p className="hero-lead">
-              Nothing here is a black box. Every score is arithmetic you can follow, every rule is data you can edit,
-              and every shortcut taken under deadline is written down with a repayment plan.
-            </p>
-            <div className="d-flex flex-wrap gap-2">
-              <Link className="btn btn-primary" href="/register">
-                <i className="bi bi-play-circle" aria-hidden="true" /> Try the Triage Wizard
-              </Link>
-              <Link className="btn btn-outline-secondary" href="/about">
-                <i className="bi bi-info-circle" aria-hidden="true" /> How It Was Built
-              </Link>
-            </div>
-          </div>
-
-          {/* Scoring model preview */}
-          <div className="hero-preview" aria-hidden="true">
-            <div className="hero-preview-head">
-              <span className="d-inline-flex align-items-center gap-2 fw-bold">
-                <i className="bi bi-calculator text-primary" />
-                Scoring model
-              </span>
-              <span className="badge text-bg-secondary">0 – 100</span>
-            </div>
-
-            {SCORING.map((row) => (
-              <div className="hero-preview-row" key={row.factor}>
-                <span className="d-inline-flex align-items-center gap-2">
-                  <i className={`bi ${row.icon}`} />
-                  {row.factor}
-                </span>
-                <strong>{row.weight}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Capability grid ──────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">What it does</p>
-          <h2 className="h3">Six subsystems, mapped to requirements</h2>
-          <p>Each capability traces back to a numbered requirement in the specification.</p>
-        </div>
-
-        <div className="row g-3">
-          {FEATURES.map((feature) => (
-            <div className="col-12 col-md-6 col-xl-4" key={feature.title}>
-              <article className="feature-tile">
-                <div className="d-flex align-items-center justify-content-between gap-2">
-                  <span className="page-icon">
-                    <i className={`bi ${feature.icon}`} aria-hidden="true" />
-                  </span>
-                  <span className="badge text-bg-secondary">{feature.ref}</span>
-                </div>
-                <h3>{feature.title}</h3>
-                <p>{feature.copy}</p>
-              </article>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Urgency bands ────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">The classification</p>
-          <h2 className="h3">Four tiers, three thresholds</h2>
-          <p>Where a case lands decides how quickly it is seen — and whether it should be booked at all.</p>
-        </div>
-
-        <div className="panel">
-          {BANDS.map((band) => (
-            <div className="row g-3 align-items-center py-3 border-bottom" key={band.tier}>
-              <div className="col-12 col-md-3">
-                <span className={`urgency-badge ${band.tone}`}>{band.tier.replace('_', ' ')}</span>
-              </div>
-              <div className="col-6 col-md-2">
-                <strong>{band.range}</strong>
-                <p className="text-muted small mb-0">severity score</p>
-              </div>
-              <div className="col-6 col-md-3">
-                <div className="progress" role="presentation">
-                  <div className={`progress-bar ${band.bar}`} style={{ width: band.width }} />
-                </div>
-              </div>
-              <div className="col-12 col-md-4">
-                <p className="text-muted small mb-0">{band.action}</p>
-              </div>
-            </div>
-          ))}
-          <p className="text-muted small mb-0 mt-3">
-            <i className="bi bi-info-circle me-1" aria-hidden="true" />
-            Any red-flag indicator overrides the arithmetic entirely and returns EMERGENCY at score 95.
+    <div className="lp">
+      <header className="lp-pagehead">
+        <div className="lp-pagehead-inner">
+          <p className="lp-eyebrow">The platform</p>
+          <h1 className="lp-display lp-display-sm">Everything the system does, and how</h1>
+          <p>
+            From the first symptom description to the signed clinical note — the mechanics behind each stage, stated
+            plainly enough to be checked.
           </p>
         </div>
+      </header>
+
+      {/* ── Urgency tiers ────────────────────────────────────────────────── */}
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Triage output</p>
+          <h2 className="lp-heading">Four urgency tiers</h2>
+          <p className="lp-section-lead">
+            Every assessment resolves to exactly one tier, and the tier determines what the patient is offered next.
+          </p>
+        </header>
+
+        <div className="lp-table-wrap">
+          <table className="lp-table">
+            <caption>
+              Boundaries are fixed at 80, 60 and 35. A critical red flag overrides the calculation entirely.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Tier</th>
+                <th scope="col">Score</th>
+                <th scope="col">What it means</th>
+                <th scope="col">What happens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TIERS.map((tier) => (
+                <tr key={tier.tier}>
+                  <td>
+                    <span className={`lp-tier ${tier.tone}`}>{tier.tier}</span>
+                  </td>
+                  <td>{tier.range}</td>
+                  <td>{tier.meaning}</td>
+                  <td>{tier.action}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      {/* ── Role matrix ──────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">Access control</p>
-          <h2 className="h3">Role-based operations matrix</h2>
-          <p>What each workspace can do once signed in.</p>
-        </div>
+      {/* ── Scoring ──────────────────────────────────────────────────────── */}
+      <section className="lp-section lp-section-tinted">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">How the score is built</p>
+          <h2 className="lp-heading">Nothing hidden in the calculation</h2>
+        </header>
 
-        <div className="row g-3">
-          {ROLE_MATRIX.map((entry) => (
-            <div className="col-12 col-lg-4" key={entry.role}>
-              <article className="panel h-100">
-                <h3 className="h6 section-title mb-3">
-                  <i className={`bi ${entry.icon}`} aria-hidden="true" />
-                  <span>{entry.role}</span>
-                </h3>
-                <ul className="compare-list">
-                  {entry.items.map((item) => (
-                    <li key={item}>
-                      <i className="bi bi-check2-circle text-success" aria-hidden="true" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </div>
+        <div className="lp-table-wrap">
+          <table className="lp-table">
+            <caption>The total is capped at 100.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Factor</th>
+                <th scope="col">Contribution</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SCORING.map((row) => (
+                <tr key={row.factor}>
+                  <td>{row.factor}</td>
+                  <td>{row.weight}</td>
+                  <td>{row.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── Capabilities ─────────────────────────────────────────────────── */}
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Capabilities</p>
+          <h2 className="lp-heading">Built for the whole episode of care</h2>
+        </header>
+
+        <div className="lp-capabilities">
+          {CAPABILITIES.map((capability) => (
+            <article className="lp-capability" key={capability.title}>
+              <i className={`bi ${capability.icon}`} aria-hidden="true" />
+              <h3>{capability.title}</h3>
+              <p>{capability.copy}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      {/* ── Technical debt ───────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">Honest accounting</p>
-          <h2 className="h3">Technical debt, declared up front</h2>
-          <p>Three shortcuts were taken deliberately. Each is documented with its cause and its repayment plan.</p>
-        </div>
+      {/* ── Reliability ──────────────────────────────────────────────────── */}
+      <section className="lp-section lp-section-tinted">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Underneath</p>
+          <h2 className="lp-heading">What keeps the data honest</h2>
+          <p className="lp-section-lead">
+            Scheduling is where a healthcare system either holds together or quietly corrupts itself. These are the
+            guarantees behind it.
+          </p>
+        </header>
 
-        <div className="row g-3">
-          {DEBT.map((item, index) => (
-            <div className="col-12 col-lg-4" key={item.title}>
-              <article className="panel h-100">
-                <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
-                  <span className="eyebrow mb-0">Debt #{index + 1}</span>
-                  <span className={`badge ${item.tone}`}>{item.priority}</span>
-                </div>
-                <h3 className="h6 mb-3">{item.title}</h3>
-                <div className="info-list">
-                  <div>
-                    <span>Cause</span>
-                    <strong className="text-end">{item.cause}</strong>
-                  </div>
-                  <div>
-                    <span>Payback</span>
-                    <strong className="text-end">{item.payback}</strong>
-                  </div>
-                </div>
-              </article>
-            </div>
+        <ol className="lp-journey">
+          {RELIABILITY.map((item) => (
+            <li key={item.title}>
+              <h3>{item.title}</h3>
+              <p>{item.copy}</p>
+            </li>
           ))}
+        </ol>
+      </section>
+
+      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Common questions</p>
+          <h2 className="lp-heading">Before you begin</h2>
+        </header>
+        <div className="lp-faq">
+          <Faq items={FAQS} />
         </div>
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="cta-band public-section">
-        <h2 className="h3">See the engine run</h2>
-        <p>Register a patient account and put your own symptoms through the wizard — it takes about three minutes.</p>
-        <div className="d-flex flex-wrap justify-content-center gap-2">
-          <Link className="btn btn-light" href="/register">
-            <i className="bi bi-person-plus" aria-hidden="true" /> Register as a Patient
-          </Link>
-          <Link className="btn btn-outline-light" href="/doctors">
-            <i className="bi bi-people" aria-hidden="true" /> Browse Specialists
-          </Link>
+      <section className="lp-cta">
+        <div className="lp-cta-inner">
+          <p className="lp-eyebrow lp-eyebrow-inverse">Ready when you are</p>
+          <h2 className="lp-display lp-display-sm">Run your first assessment</h2>
+          <p>Three minutes, an urgency tier, a recommended specialty, and a consultation you can book immediately.</p>
+          <div className="lp-actions lp-actions-center">
+            <Link className="lp-btn lp-btn-light" href="/register">
+              Create an account
+            </Link>
+            <Link className="lp-btn lp-btn-outline-light" href="/doctors">
+              Browse our clinicians
+            </Link>
+          </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

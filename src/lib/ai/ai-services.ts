@@ -106,43 +106,6 @@ export async function generateSoapNotesAI(
   consultationTranscript: string,
   patientInfo?: { name?: string; age?: number; gender?: string }
 ): Promise<SOAPNoteResult> {
-  const textLower = consultationTranscript.toLowerCase();
-
-  // Smart fallback template (only used if Ollama/Cloud LLM fails to connect)
-  let fallbackDiagnosis = 'Acute Clinical Symptom Presentation — Evaluated.';
-  let fallbackIcd10 = ['R69 - Illness, unspecified', 'Z00.00 - General adult medical examination'];
-  let fallbackPlan = `1. Paracetamol 500mg TDS x 5 days for symptomatic relief
-2. Multi-vitamin tablets 1 Tab OD x 14 days
-3. Maintain adequate oral hydration (2-3L fluids daily)
-4. Order baseline Full Blood Count (FBC) if symptoms persist
-5. Re-evaluate in 5-7 days or sooner if danger signs appear.`;
-
-  if (textLower.includes('fever') || textLower.includes('cough') || textLower.includes('throat') || textLower.includes('headache')) {
-    fallbackDiagnosis = '1. Acute Upper Respiratory Tract Infection (URTI) [Primary]\n2. Suspected Acute Febrile Syndrome / Viral Infection [Differential]';
-    fallbackIcd10 = ['J06.9 - Acute upper respiratory infection, unspecified', 'R50.9 - Fever, unspecified', 'B97.8 - Other viral agents'];
-    fallbackPlan = `1. Tab Amoxicillin/Clavulanate 625mg BD x 7 days
-2. Tab Paracetamol 1g QDS x 5 days (PRN for fever > 38.0°C)
-3. Syp Decongestant 10ml TDS x 5 days
-4. Order Malaria RDT & Full Blood Count (FBC)
-5. Advise warm salt-water gargle and bed rest for 3 days.`;
-  } else if (textLower.includes('stomach') || textLower.includes('abdominal') || textLower.includes('vomit') || textLower.includes('diarrhea') || textLower.includes('nausea')) {
-    fallbackDiagnosis = '1. Acute Gastroenteritis / Dyspeptic Syndrome [Primary]\n2. Functional Dyspepsia [Differential]';
-    fallbackIcd10 = ['A09 - Infectious gastroenteritis and colitis', 'K30 - Functional dyspepsia'];
-    fallbackPlan = `1. Cap Omeprazole 20mg BD before meals x 14 days
-2. Tab Metoclopramide 10mg TDS x 3 days (15 mins before meals)
-3. ORS (Oral Rehydration Salts) 1 Sachet in 1L clean water - sip frequently
-4. Stool Routine & Microscopy test
-5. Bland diet (BRAT: Bananas, Rice, Applesauce, Toast); avoid fatty/spicy foods.`;
-  } else if (textLower.includes('bp') || textLower.includes('hypertension') || textLower.includes('dizziness') || textLower.includes('pressure')) {
-    fallbackDiagnosis = '1. Essential Primary Hypertension [Primary]\n2. Stress-Induced Vascular Headache [Differential]';
-    fallbackIcd10 = ['I10 - Essential (primary) hypertension', 'R42 - Dizziness and giddiness'];
-    fallbackPlan = `1. Tab Amlodipine 5mg OD (Morning) x 30 days
-2. Tab Paracetamol 500mg PRN for tension headache
-3. Order Serum Electrolytes, Urea, Creatinine (E/U/Cr) & Fasting Blood Glucose
-4. Order 12-Lead Resting ECG
-5. Low-sodium diet (<2g salt/day), 30 mins moderate walking daily, BP log chart.`;
-  }
-
   const systemPrompt = `You are an expert board-certified clinical physician AI assistant. Analyze the patient consultation transcript, symptoms, and vital signs to assist the attending doctor with a comprehensive SOAP medical note.
 
 Return ONLY a valid JSON object matching this schema:
@@ -155,13 +118,24 @@ Return ONLY a valid JSON object matching this schema:
   "follow_up_recommendation": "Follow up timeframe or emergency red flag warnings."
 }`;
 
+  /**
+   * When the models are unreachable this returns NO clinical content.
+   *
+   * This used to be a keyword-matched template: any transcript containing the
+   * letters "bp" produced a confident "Essential Primary Hypertension" with a
+   * 30-day amlodipine prescription, regardless of the patient in front of the
+   * doctor. It was indistinguishable from a real AI answer in the UI, so an
+   * outage looked like a working feature and put a fabricated diagnosis into
+   * the EMR. A blank note the doctor must fill in is the only safe fallback —
+   * `ai_provenance.method === 'fallback'` tells the UI to say so out loud.
+   */
   const fallback: SOAPNoteResult = {
-    subjective: `Patient (${patientInfo?.name || 'Patient'}) reported symptoms:\n• ${consultationTranscript.slice(0, 250)}`,
-    objective: 'Vital signs & clinical measurements recorded by medical staff.',
-    assessment: fallbackDiagnosis,
-    plan: fallbackPlan,
-    icd10_suggestions: fallbackIcd10,
-    follow_up_recommendation: 'Follow up in 5-7 days or immediately if danger signs develop.',
+    subjective: `Patient (${patientInfo?.name || 'Patient'}) reported:\n${consultationTranscript.slice(0, 400)}`,
+    objective: 'Not generated — record the vital signs and examination findings here.',
+    assessment: '⚠️ AI unavailable — no diagnosis was generated. Enter your clinical impression here.',
+    plan: '⚠️ AI unavailable — no treatment plan or prescription was generated. Enter the plan here.',
+    icd10_suggestions: [],
+    follow_up_recommendation: 'Not generated — set the follow-up interval and red-flag advice here.',
   };
 
   // The SOAP note is what the doctor signs off, so the full panel is consulted

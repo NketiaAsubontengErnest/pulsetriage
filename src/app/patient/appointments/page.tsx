@@ -95,7 +95,7 @@ function PatientAppointmentsContent() {
   }, [appointments]);
 
   const handleBookingSuccess = (newOrUpdatedApp: Appointment) => {
-    scheduleAppointmentReminders(newOrUpdatedApp);
+    void scheduleAppointmentReminders(newOrUpdatedApp);
     if (appointmentToReschedule) {
       setAppointments((list) => list.map((a) => (a.id === newOrUpdatedApp.id ? newOrUpdatedApp : a)));
       setActionMessage('Appointment rescheduled successfully. Reminders updated for your new date & time.');

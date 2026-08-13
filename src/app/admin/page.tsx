@@ -374,7 +374,7 @@ function AdminDashboardContent() {
                     <i className="bi bi-sliders" aria-hidden="true" />
                     <span>Configurable Triage Rules</span>
                   </h2>
-                  <p className="text-muted mb-0">Rules-as-data (FR-2.3).</p>
+                  <p className="text-muted mb-0">Triage rules stored as editable data.</p>
                 </div>
                 <span className="badge text-bg-secondary">{rules.length} rules</span>
               </div>
@@ -501,7 +501,7 @@ function AdminDashboardContent() {
                     <i className="bi bi-play-circle" aria-hidden="true" />
                     <span>Interactive Rule Simulator</span>
                   </h2>
-                  <p className="text-muted mb-0">FR-2.7 — pre-publish test.</p>
+                  <p className="text-muted mb-0">Try a case before publishing changes.</p>
                 </div>
               </div>
 
@@ -585,7 +585,7 @@ function AdminDashboardContent() {
                 <i className="bi bi-file-earmark-text" aria-hidden="true" />
                 <span>System Audit Log Stream</span>
               </h2>
-              <p className="text-muted mb-0">FR-4.5 — immutable trail.</p>
+              <p className="text-muted mb-0">Append-only activity trail.</p>
             </div>
             <span className="badge text-bg-secondary">{auditLogs.length} events</span>
           </div>
@@ -639,7 +639,7 @@ function AdminDashboardContent() {
                 <i className="bi bi-bell" aria-hidden="true" />
                 <span>Notification Queue Dispatcher</span>
               </h2>
-              <p className="text-muted mb-0">Technical Debt #2 — simplified in-app queue (FR-6.3).</p>
+              <p className="text-muted mb-0">In-app notification queue.</p>
             </div>
             <span className="badge text-bg-secondary">{notificationsList.length} messages</span>
           </div>
@@ -685,7 +685,7 @@ function AdminDashboardContent() {
                 <i className="bi bi-person-badge" aria-hidden="true" />
                 <span>Doctor License Verification</span>
               </h2>
-              <p className="text-muted mb-0">FR-4.3 — account governance.</p>
+              <p className="text-muted mb-0">Account governance and access control.</p>
             </div>
             <Link className="btn btn-outline-secondary btn-sm" href="/admin/doctors">
               Full Registry

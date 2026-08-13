@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { ThemeToggle, useUi } from '@/lib/ui-context';
-import { getUserNotifications, markNotificationAsRead } from '@/lib/notifications';
+import { getNotifications, markNotificationRead, NotificationRow } from '@/lib/api';
 
 const PUBLIC_LINKS = [
   { href: '/', label: 'Home' },
@@ -22,7 +22,7 @@ export const Navbar: React.FC = () => {
   const { toggleSidebar } = useUi();
 
   const [openMenu, setOpenMenu] = useState<'NOTIFICATIONS' | 'PROFILE' | null>(null);
-  const [readTick, setReadTick] = useState(0);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const actionsRef = useRef<HTMLDivElement>(null);
 
   // Close whichever dropdown is open when the click lands outside the actions.
@@ -37,7 +37,31 @@ export const Navbar: React.FC = () => {
 
   useEffect(() => setOpenMenu(null), [pathname]);
 
-  const notifications = getUserNotifications(user ? user.id : 'guest');
+  // Live from the notifications table. Refreshed on sign-in, when the tray is
+  // opened, and on a slow poll so a booking made in another tab shows up.
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+    try {
+      setNotifications(await getNotifications(user.id));
+    } catch (err) {
+      console.warn('[navbar] could not load notifications', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadNotifications();
+    if (!user) return;
+    const timer = setInterval(loadNotifications, 60000);
+    return () => clearInterval(timer);
+  }, [loadNotifications, user]);
+
+  useEffect(() => {
+    if (openMenu === 'NOTIFICATIONS') void loadNotifications();
+  }, [openMenu, loadNotifications]);
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const handleLogout = () => {
@@ -46,9 +70,15 @@ export const Navbar: React.FC = () => {
     router.push('/login');
   };
 
-  const handleReadNotification = (id: string) => {
-    markNotificationAsRead(id);
-    setReadTick(readTick + 1);
+  const handleReadNotification = async (id: string) => {
+    // Optimistic: the tray reflects the tap immediately, then reconciles.
+    setNotifications((rows) => rows.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    try {
+      await markNotificationRead(id);
+    } catch (err) {
+      console.warn('[navbar] could not mark notification read', err);
+      void loadNotifications();
+    }
   };
 
   const portalHref = user
@@ -179,6 +209,15 @@ export const Navbar: React.FC = () => {
                         <i className="bi bi-speedometer2 me-2" aria-hidden="true" />
                         My Workspace
                       </Link>
+                    </li>
+                    <li>
+                      <Link className="dropdown-item" href="/profile">
+                        <i className="bi bi-person-gear me-2" aria-hidden="true" />
+                        My Profile
+                      </Link>
+                    </li>
+                    <li>
+                      <hr className="dropdown-divider" />
                     </li>
                     <li>
                       <button className="dropdown-item text-danger" type="button" onClick={handleLogout}>

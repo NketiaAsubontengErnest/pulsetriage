@@ -10,6 +10,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   registerPatient: (fullName: string, email: string, phone: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  /** Replaces the cached session user after a profile edit, so the navbar and
+   *  sidebar pick up a new name or avatar without signing out and back in. */
+  applyProfileUpdate: (profile: UserProfile) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -106,8 +109,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('pulsetriage_session');
   };
 
+  const applyProfileUpdate = (profile: UserProfile) => {
+    setUser(profile);
+    localStorage.setItem('pulsetriage_session', JSON.stringify(profile));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, registerPatient, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated: !!user, isLoading, login, registerPatient, logout, applyProfileUpdate }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { checkSlotAvailable, isSlotConflict, slotKeyFor } from '@/lib/booking-guard';
 
 // GET /api/appointments?patient_id=&doctor_id=&status=
 export async function GET(req: NextRequest) {
@@ -81,41 +82,71 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 });
     }
 
-    const appointment = await db.appointment.create({
-      data: {
-        patient_id,
-        doctor_id,
-        triage_id: triage_id || null,
-        appointment_date,
-        start_time,
-        end_time: end_time || '',
-        status: 'PENDING_PAYMENT',
-        payment_status: 'PENDING',
-        payment_amount: parseFloat(payment_amount) || 0,
-        reason: reason || null,
-        notes: notes || null,
-      },
-    });
+    // The slot must be one the doctor actually publishes, and still free. The
+    // picker already filters, but a direct call or a stale tab must not be able
+    // to double-book. The re-check inside the transaction closes the window
+    // between two patients confirming the same slot.
+    const precheck = await checkSlotAvailable({ doctor_id, appointment_date, start_time });
+    if (!precheck.ok) {
+      return NextResponse.json({ error: precheck.error }, { status: precheck.status });
+    }
 
-    // Notify the doctor (notifications reference User.id, not Doctor.id)
-    await db.notification.create({
-      data: {
-        user_id: doctor.user_id,
-        title: 'New Appointment Booked',
-        message: `A patient has booked an appointment on ${appointment_date} at ${start_time}.`,
-        type: 'APPOINTMENT',
-      },
-    });
+    // One transaction covers the appointment, the doctor's notification and the
+    // audit row, so a failure part-way cannot leave an appointment nobody was
+    // told about or a booking with no trail. `slot_key` carries the unique
+    // index that makes a duplicate physically impossible.
+    let appointment;
+    try {
+      appointment = await db.$transaction(async (tx) => {
+        const created = await tx.appointment.create({
+          data: {
+            patient_id,
+            doctor_id,
+            triage_id: triage_id || null,
+            appointment_date,
+            start_time,
+            // The doctor's configured slot length wins over whatever the client sent.
+            end_time: precheck.end_time || end_time || '',
+            slot_key: slotKeyFor(appointment_date, start_time),
+            status: 'PENDING_PAYMENT',
+            payment_status: 'PENDING',
+            payment_amount: parseFloat(payment_amount) || 0,
+            reason: reason || null,
+            notes: notes || null,
+          },
+        });
 
-    await db.auditLog.create({
-      data: {
-        actor: patient_id,
-        action: 'APPOINTMENT_BOOKED',
-        entity: 'Appointment',
-        entity_id: appointment.id,
-        details: `Appointment booked for ${appointment_date} at ${start_time}`,
-      },
-    });
+        // Notify the doctor (notifications reference User.id, not Doctor.id)
+        await tx.notification.create({
+          data: {
+            user_id: doctor.user_id,
+            title: 'New Appointment Booked',
+            message: `A patient has booked an appointment on ${appointment_date} at ${start_time}.`,
+            type: 'APPOINTMENT',
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actor: patient_id,
+            action: 'APPOINTMENT_BOOKED',
+            entity: 'Appointment',
+            entity_id: created.id,
+            details: `Appointment booked for ${appointment_date} at ${start_time}`,
+          },
+        });
+
+        return created;
+      });
+    } catch (err) {
+      if (isSlotConflict(err)) {
+        return NextResponse.json(
+          { error: `${start_time} has just been booked by someone else. Please pick another slot.` },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
 
     return NextResponse.json({ appointment }, { status: 201 });
   } catch (error) {

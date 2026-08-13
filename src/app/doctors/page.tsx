@@ -5,12 +5,21 @@ import Link from 'next/link';
 import { Doctor } from '@/lib/types';
 import { getDoctors } from '@/lib/api';
 
-const BOOKING_STEPS = [
-  { title: 'Sign in', copy: 'Register or log in to your patient account.' },
-  { title: 'Run triage', copy: 'Complete the four-step symptom questionnaire.' },
-  { title: 'Match a specialty', copy: 'The engine recommends the specialty that fits your symptoms.' },
-  { title: 'Lock a slot', copy: 'Choose a 30-minute window and confirm at checkout.' },
+const STEPS = [
+  { step: '01', title: 'Create an account', copy: 'Register with your name, email and phone number.' },
+  { step: '02', title: 'Describe your symptoms', copy: 'A guided assessment scores urgency and screens for warning signs.' },
+  { step: '03', title: 'Match a specialty', copy: 'The engine recommends the specialty that fits your presentation.' },
+  { step: '04', title: 'Choose a free slot', copy: 'Book from the hours that clinician actually publishes.' },
 ];
+
+const initials = (name: string) =>
+  name
+    .replace(/^Dr\.?\s+/i, '')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -22,18 +31,19 @@ export default function DoctorsPage() {
   useEffect(() => {
     getDoctors()
       .then((docs) => setDoctors(docs.filter((d) => d.is_verified)))
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load doctor directory'))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load the clinician directory'))
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Specialty chips are derived from whoever is actually on the registry.
+  // Specialty filters are derived from whoever is actually on the registry,
+  // so an empty specialty never appears as a dead chip.
   const specialties = useMemo(
     () => ['All', ...Array.from(new Set(doctors.map((d) => d.specialization))).sort()],
     [doctors]
   );
 
-  const term = searchTerm.toLowerCase();
-  const filteredDoctors = doctors.filter(
+  const term = searchTerm.trim().toLowerCase();
+  const filtered = doctors.filter(
     (d) =>
       (activeSpecialty === 'All' || d.specialization === activeSpecialty) &&
       (d.full_name.toLowerCase().includes(term) ||
@@ -41,214 +51,154 @@ export default function DoctorsPage() {
         d.bio.toLowerCase().includes(term))
   );
 
-  const averageFee = doctors.length
-    ? doctors.reduce((sum, d) => sum + d.consultation_fee, 0) / doctors.length
-    : 0;
-  const averageRating = doctors.length
-    ? doctors.reduce((sum, d) => sum + d.rating, 0) / doctors.length
-    : 0;
-
   return (
-    <>
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="public-hero">
-        <div className="hero-grid">
-          <div>
-            <p className="eyebrow mb-2">
-              <i className="bi bi-clipboard2-pulse me-1" aria-hidden="true" />
-              Specialist directory
-            </p>
-            <h1 className="hero-title">
-              Verified specialists, <span className="accent">matched to your symptoms</span>
-            </h1>
-            <p className="hero-lead">
-              Every clinician here has had their licence verified by system administration. Complete a triage
-              assessment first and the platform will point you at the specialty that fits your presentation.
-            </p>
-            <div className="d-flex flex-wrap gap-2">
-              <Link className="btn btn-primary" href="/register">
-                <i className="bi bi-activity" aria-hidden="true" /> Start with Triage
-              </Link>
-              <Link className="btn btn-outline-secondary" href="/login">
-                <i className="bi bi-calendar2-plus" aria-hidden="true" /> Sign In to Book
-              </Link>
-            </div>
-          </div>
+    <div className="lp">
+      <header className="lp-pagehead">
+        <div className="lp-pagehead-inner">
+          <p className="lp-eyebrow">Clinician directory</p>
+          <h1 className="lp-display lp-display-sm">Our verified specialists</h1>
+          <p>
+            Every clinician listed here has had their medical licence verified before being allowed to accept
+            bookings. Consultation fees and availability are their own.
+          </p>
         </div>
-      </section>
-
-      {/* ── Registry stats ───────────────────────────────────────────────── */}
-      <section className="stat-band public-section" aria-label="Registry figures">
-        <div>
-          <strong>{doctors.length}</strong>
-          <span>Verified specialists</span>
-        </div>
-        <div>
-          <strong>{specialties.length - 1}</strong>
-          <span>Specialties covered</span>
-        </div>
-        <div>
-          <strong>{averageRating ? averageRating.toFixed(2) : '—'}</strong>
-          <span>Average rating</span>
-        </div>
-        <div>
-          <strong>GH₵ {averageFee.toFixed(0)}</strong>
-          <span>Average fee</span>
-        </div>
-      </section>
+      </header>
 
       {/* ── Directory ────────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head">
-          <p className="eyebrow mb-1">The registry</p>
-          <h2 className="h3">Browse available clinicians</h2>
-          <p>Filter by specialty, or search by name and clinical background.</p>
+      <section className="lp-section">
+        <div className="lp-toolbar">
+          <div className="lp-search">
+            <i className="bi bi-search" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, specialty or interest"
+              aria-label="Search clinicians"
+            />
+          </div>
+
+          <div className="lp-chips" role="group" aria-label="Filter by specialty">
+            {specialties.map((specialty) => (
+              <button
+                key={specialty}
+                type="button"
+                className={`lp-chip${activeSpecialty === specialty ? ' is-active' : ''}`}
+                onClick={() => setActiveSpecialty(specialty)}
+                aria-pressed={activeSpecialty === specialty}
+              >
+                {specialty}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loadError && (
-          <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
-            <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-            <span className="small">{loadError}</span>
+          <div className="lp-notice lp-notice-danger" role="alert">
+            <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
+            {loadError}
           </div>
         )}
 
-        <div className="panel mb-3">
-          <div className="row g-3 align-items-center">
-            <div className="col-12 col-lg-8">
-              <div className="filter-chips">
-                {specialties.map((spec) => (
-                  <button
-                    key={spec}
-                    type="button"
-                    className={`filter-chip${activeSpecialty === spec ? ' active' : ''}`}
-                    onClick={() => setActiveSpecialty(spec)}
-                    aria-pressed={activeSpecialty === spec}
-                  >
-                    {spec}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="col-12 col-lg-4">
-              <input
-                className="form-control form-control-sm"
-                type="search"
-                placeholder="Search name or expertise"
-                aria-label="Search specialists"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
         {isLoading ? (
-          <div className="panel blank-panel">
-            <div className="blank-state">
-              <i className="bi bi-hourglass-split" aria-hidden="true" />
-              <p className="text-muted mb-0">Loading verified specialists…</p>
-            </div>
+          <div className="lp-empty">
+            <i className="bi bi-hourglass-split" aria-hidden="true" />
+            <p className="mb-0">Loading the clinician directory…</p>
           </div>
-        ) : filteredDoctors.length === 0 ? (
-          <div className="panel blank-panel">
-            <div className="blank-state">
-              <i className="bi bi-person-x" aria-hidden="true" />
-              <p className="text-muted mb-0">
-                {doctors.length === 0
-                  ? 'No verified specialists are listed yet.'
-                  : 'No specialists match this filter.'}
-              </p>
-            </div>
+        ) : filtered.length === 0 ? (
+          <div className="lp-empty">
+            <i className="bi bi-person-x" aria-hidden="true" />
+            <p className="mb-0">
+              {doctors.length === 0
+                ? 'No clinicians have been verified on the registry yet.'
+                : 'No clinician matches that search. Try a different specialty or term.'}
+            </p>
           </div>
         ) : (
-          <div className="row g-3">
-            {filteredDoctors.map((doc) => (
-              <div className="col-12 col-md-6 col-xl-4" key={doc.id}>
-                <article className="feature-tile d-flex flex-column">
-                  <div className="d-flex align-items-center gap-3">
-                    {doc.avatar_url ? (
+          <div className="lp-directory">
+            {filtered.map((doctor) => (
+              <article className="lp-doctor" key={doctor.id}>
+                <div className="lp-doctor-head">
+                  <div className="lp-doctor-portrait">
+                    {doctor.avatar_url ? (
+                      // Remote and data URLs bypass next/image optimisation here.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img className="avatar-img avatar-md" src={doc.avatar_url} alt={doc.full_name} />
+                      <img src={doctor.avatar_url} alt="" />
                     ) : (
-                      <span className="avatar-initials avatar-md">
-                        {doc.full_name.replace(/^Dr\.?\s*/i, '').charAt(0).toUpperCase()}
-                      </span>
+                      initials(doctor.full_name)
                     )}
-                    <div className="min-w-0">
-                      <h3 className="mt-0 mb-1">{doc.full_name}</h3>
-                      <p className="eyebrow mb-0">{doc.specialization}</p>
-                    </div>
                   </div>
-
-                  <p className="mt-3 flex-grow-1">{doc.bio}</p>
-
-                  <div className="info-list">
-                    <div>
-                      <span>
-                        <i className="bi bi-star-fill text-warning me-1" aria-hidden="true" />
-                        Rating
-                      </span>
-                      <strong>{doc.rating.toFixed(2)} / 5.00</strong>
-                    </div>
-                    <div>
-                      <span>
-                        <i className="bi bi-cash-coin me-1" aria-hidden="true" />
-                        Consultation fee
-                      </span>
-                      <strong>GH₵ {doc.consultation_fee.toFixed(2)}</strong>
-                    </div>
-                    <div>
-                      <span>
-                        <i className="bi bi-patch-check me-1" aria-hidden="true" />
-                        Licence
-                      </span>
-                      <strong>{doc.license_number}</strong>
-                    </div>
+                  <div className="min-w-0">
+                    <h3>{doctor.full_name}</h3>
+                    <span className="lp-doctor-specialty">{doctor.specialization}</span>
                   </div>
+                </div>
 
-                  <Link className="btn btn-light btn-sm mt-3" href="/login">
-                    <i className="bi bi-calendar2-plus" aria-hidden="true" /> Sign in to book
-                  </Link>
-                </article>
-              </div>
+                <p className="lp-doctor-bio">{doctor.bio}</p>
+
+                <div className="lp-doctor-meta">
+                  <div>
+                    <span>Consultation</span>
+                    <strong>GHS {doctor.consultation_fee.toFixed(2)}</strong>
+                  </div>
+                  <div>
+                    <span>Rating</span>
+                    <strong>{doctor.rating ? doctor.rating.toFixed(2) : '—'}</strong>
+                  </div>
+                  <div>
+                    <span>Status</span>
+                    <strong>Verified</strong>
+                  </div>
+                </div>
+
+                <Link className="lp-audience-link" href={`/booking?specialty=${encodeURIComponent(doctor.specialization)}`}>
+                  Book a consultation <i className="bi bi-arrow-right" aria-hidden="true" />
+                </Link>
+              </article>
             ))}
           </div>
         )}
       </section>
 
-      {/* ── Booking explainer ────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">Before you book</p>
-          <h2 className="h3">How slot booking works</h2>
-          <p>Triage comes first — it decides which specialty you are offered and how urgently.</p>
-        </div>
+      {/* ── How booking works ────────────────────────────────────────────── */}
+      <section className="lp-section lp-section-tinted">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Booking</p>
+          <h2 className="lp-heading">Four steps to a consultation</h2>
+          <p className="lp-section-lead">
+            Assessment comes before booking, so you are matched to the right specialty rather than guessing at one.
+          </p>
+        </header>
 
-        <div className="step-flow">
-          {BOOKING_STEPS.map((step, index) => (
-            <article className="step-item" key={step.title}>
-              <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-              <h3>{step.title}</h3>
-              <p>{step.copy}</p>
-            </article>
+        <ol className="lp-journey">
+          {STEPS.map((stage) => (
+            <li key={stage.step}>
+              <span className="lp-step" aria-hidden="true">
+                {stage.step}
+              </span>
+              <h3>{stage.title}</h3>
+              <p>{stage.copy}</p>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="cta-band public-section">
-        <h2 className="h3">Find the right specialist</h2>
-        <p>Run a three-minute symptom assessment and the platform will recommend who to see, and how soon.</p>
-        <div className="d-flex flex-wrap justify-content-center gap-2">
-          <Link className="btn btn-light" href="/register">
-            <i className="bi bi-person-plus" aria-hidden="true" /> Register as a Patient
-          </Link>
-          <Link className="btn btn-outline-light" href="/contact">
-            <i className="bi bi-chat-dots" aria-hidden="true" /> Contact Administration
-          </Link>
+      <section className="lp-cta">
+        <div className="lp-cta-inner">
+          <p className="lp-eyebrow lp-eyebrow-inverse">Next step</p>
+          <h2 className="lp-display lp-display-sm">Find the right specialist for you</h2>
+          <p>Begin with a symptom assessment and let the recommendation guide the booking.</p>
+          <div className="lp-actions lp-actions-center">
+            <Link className="lp-btn lp-btn-light" href="/register">
+              Create an account
+            </Link>
+            <Link className="lp-btn lp-btn-outline-light" href="/contact">
+              Talk to us first
+            </Link>
+          </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

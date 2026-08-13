@@ -119,7 +119,7 @@ function RuleConfiguratorContent() {
                   <i className="bi bi-list-columns-reverse" aria-hidden="true" />
                   <span>Configured Rules Matrix</span>
                 </h2>
-                <p className="text-muted mb-0">FR-2.3 rules-as-data.</p>
+                <p className="text-muted mb-0">Triage rules stored as editable data.</p>
               </div>
             </div>
 
@@ -251,7 +251,7 @@ function RuleConfiguratorContent() {
                   <i className="bi bi-play-circle" aria-hidden="true" />
                   <span>Pre-Publish Rule Simulator</span>
                 </h2>
-                <p className="text-muted mb-0">FR-2.7 — evaluate against the active matrix.</p>
+                <p className="text-muted mb-0">Evaluate a case against the active rule set.</p>
               </div>
             </div>
 

@@ -99,7 +99,7 @@ function AuditLogsContent() {
               <i className="bi bi-shield-lock" aria-hidden="true" />
               <span>Immutable Audit Log Stream</span>
             </h2>
-            <p className="text-muted mb-0">FR-4.5 · Section 5.1</p>
+            <p className="text-muted mb-0">Append-only record of every action.</p>
           </div>
           <span className="badge text-bg-secondary">{auditLogs.length} events</span>
         </div>
@@ -150,7 +150,7 @@ function AuditLogsContent() {
               <i className="bi bi-bell" aria-hidden="true" />
               <span>Async Notification Dispatch Queue</span>
             </h2>
-            <p className="text-muted mb-0">Technical Debt #2 · FR-6.3</p>
+            <p className="text-muted mb-0">Queued in-app notifications.</p>
           </div>
           <span className="badge text-bg-warning">{queuedCount} queued</span>
         </div>

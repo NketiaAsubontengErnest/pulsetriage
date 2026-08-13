@@ -9,7 +9,9 @@ import {
   createAppointment,
   createPayment,
   updateAppointment,
+  getDoctorSchedule,
 } from '@/lib/api';
+import type { DerivedSlot } from '@/lib/schedule';
 import { processSimulatedPayment } from '@/lib/simulated-payment';
 import { scheduleAppointmentReminders } from '@/lib/notifications';
 
@@ -51,7 +53,52 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [confirmedAppointment, setConfirmedAppointment] = useState<Appointment | null>(null);
 
-  const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00'];
+  // Slots come from the doctor's saved consulting hours (doctor_schedules),
+  // with the ones already taken marked. There is no hard-coded list any more:
+  // what the doctor sets in the Schedule Slot Manager is exactly what appears
+  // here.
+  const [slots, setSlots] = useState<DerivedSlot[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState('');
+
+  useEffect(() => {
+    if (!selectedDoctor?.id || !selectedDate) {
+      setSlots([]);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingSlots(true);
+    setSlotError('');
+
+    getDoctorSchedule(selectedDoctor.id, selectedDate)
+      .then((data) => {
+        if (cancelled) return;
+        const derived = data.slots || [];
+        setSlots(derived);
+
+        // Keep the rescheduled appointment's own slot selectable; otherwise
+        // fall to the first open one so the form is never left on a slot the
+        // doctor does not actually offer.
+        const stillValid = derived.some(
+          (s) => s.start_time === selectedTimeSlot && (s.available || s.appointment_id === appointmentToReschedule?.id)
+        );
+        if (!stillValid) {
+          const firstOpen = derived.find((s) => s.available);
+          setSelectedTimeSlot(firstOpen?.start_time || '');
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setSlotError(err instanceof Error ? err.message : 'Could not load this doctor’s availability');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSlots(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDoctor?.id, selectedDate]);
 
   // Load verified doctors and specializations
   useEffect(() => {
@@ -100,7 +147,10 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
     );
   }, [doctors, selectedSpecialty, appointmentToReschedule]);
 
+  /** Uses the slot length the doctor configured; 30 minutes only as a fallback. */
   const endTimeFor = (slot: string) => {
+    const match = slots.find((s) => s.start_time === slot);
+    if (match) return match.end_time;
     const [h, m] = slot.split(':').map(Number);
     const total = h * 60 + m + 30;
     return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
@@ -110,6 +160,10 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
     if (!selectedDoctor) return;
     if (!user) {
       setPaymentError('You must be signed in to book an appointment.');
+      return;
+    }
+    if (!selectedTimeSlot) {
+      setPaymentError('Pick an available time slot before continuing.');
       return;
     }
 
@@ -140,7 +194,7 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
           status: 'CONFIRMED',
         };
 
-        scheduleAppointmentReminders(rescheduled);
+        void scheduleAppointmentReminders(rescheduled);
         setConfirmedAppointment(rescheduled);
         onBookingSuccess(rescheduled);
       } catch (err) {
@@ -206,7 +260,7 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
         payment_status: 'SIMULATED_SUCCESS',
       };
 
-      scheduleAppointmentReminders(confirmed);
+      void scheduleAppointmentReminders(confirmed);
       setConfirmedAppointment(confirmed);
       onBookingSuccess(confirmed);
     } catch (err) {
@@ -379,20 +433,60 @@ export const DoctorBookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         <div className="col-12 col-md-7">
-          <span className="form-label d-block">Select new time slot</span>
-          <div className="row g-2">
-            {timeSlots.map((slot) => (
-              <div className="col-3" key={slot}>
-                <button
-                  type="button"
-                  className={`btn btn-sm w-100 ${selectedTimeSlot === slot ? 'btn-primary' : 'btn-light'}`}
-                  onClick={() => setSelectedTimeSlot(slot)}
-                >
-                  {slot}
-                </button>
-              </div>
-            ))}
-          </div>
+          <span className="form-label d-block">
+            Select time slot
+            {selectedDoctor && (
+              <small className="text-muted ms-1">
+                · {selectedDoctor.full_name}&apos;s consulting hours
+              </small>
+            )}
+          </span>
+
+          {slotError && (
+            <div className="alert alert-warning py-1 px-2 small mb-2" role="alert">
+              <i className="bi bi-exclamation-triangle-fill me-1" />
+              {slotError}
+            </div>
+          )}
+
+          {isLoadingSlots ? (
+            <p className="text-muted small mb-0">
+              <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" />
+              Checking availability…
+            </p>
+          ) : slots.length === 0 ? (
+            <div className="alert alert-secondary py-2 px-2 small mb-0" role="status">
+              <i className="bi bi-calendar2-x me-1" />
+              {selectedDoctor
+                ? `${selectedDoctor.full_name} does not consult on this day. Try another date.`
+                : 'Choose a doctor to see their available slots.'}
+            </div>
+          ) : (
+            <div className="row g-2">
+              {slots.map((slot) => {
+                // The slot the patient is currently rescheduling away from is
+                // theirs to keep.
+                const isOwnSlot = slot.appointment_id && slot.appointment_id === appointmentToReschedule?.id;
+                const selectable = slot.available || isOwnSlot;
+                return (
+                  <div className="col-4 col-lg-3" key={slot.start_time}>
+                    <button
+                      type="button"
+                      disabled={!selectable}
+                      title={selectable ? `${slot.start_time} – ${slot.end_time}` : 'Already booked'}
+                      className={`btn btn-sm w-100 ${
+                        selectedTimeSlot === slot.start_time ? 'btn-primary' : selectable ? 'btn-light' : 'btn-outline-secondary'
+                      }`}
+                      onClick={() => setSelectedTimeSlot(slot.start_time)}
+                    >
+                      {slot.start_time}
+                      {!selectable && <i className="bi bi-lock-fill ms-1" style={{ fontSize: '10px' }} />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

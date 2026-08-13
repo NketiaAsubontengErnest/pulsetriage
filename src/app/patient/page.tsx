@@ -252,7 +252,7 @@ function PatientDashboardContent() {
                   <i className="bi bi-calendar2-week" aria-hidden="true" />
                   <span>Appointments &amp; Management</span>
                 </h2>
-                <p className="text-muted mb-0">Reschedule or cancel a confirmed consultation (FR-3.5).</p>
+                <p className="text-muted mb-0">Reschedule or cancel a confirmed consultation.</p>
               </div>
               <button className="btn btn-light btn-sm" type="button" onClick={() => setIsBookingModalOpen(true)}>
                 Book Slot

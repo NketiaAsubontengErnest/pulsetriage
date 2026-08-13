@@ -5,8 +5,14 @@ import Link from 'next/link';
 import { Appointment } from '@/lib/types';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointments, updateAppointment } from '@/lib/api';
-import { AIDoctorTools } from '@/components/doctor/ai-doctor-tools';
+import { getAppointments, updateAppointment, getDoctorSchedule } from '@/lib/api';
+import type { DerivedSlot } from '@/lib/schedule';
+
+/** Local calendar date, so "today" matches the doctor's clock rather than UTC. */
+const todayIso = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 
 const QUICK_LINKS = [
   { href: '/doctor/pending', icon: 'bi-hourglass-split', title: 'Works Pending', copy: 'Pending triage cases' },
@@ -60,17 +66,20 @@ function DoctorDashboardContent() {
       .finally(() => setIsLoading(false));
   }, [user]);
 
-  // Doctor Availability Slots State
-  const [slots, setSlots] = useState<Array<{ id: string; time: string; status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED' }>>([
-    { id: 'SLOT-1', time: '08:00 AM - 08:30 AM', status: 'BOOKED' },
-    { id: 'SLOT-2', time: '09:00 AM - 09:30 AM', status: 'BOOKED' },
-    { id: 'SLOT-3', time: '10:00 AM - 10:30 AM', status: 'AVAILABLE' },
-    { id: 'SLOT-4', time: '11:00 AM - 11:30 AM', status: 'BLOCKED' },
-    { id: 'SLOT-5', time: '02:00 PM - 02:30 PM', status: 'AVAILABLE' },
-    { id: 'SLOT-6', time: '03:00 PM - 03:30 PM', status: 'AVAILABLE' },
-  ]);
+  // Today's slots, generated from the consulting hours the doctor saved in the
+  // Schedule Slot Manager. This panel used to show six invented rows whose
+  // Block/Add buttons only moved React state around.
+  const [slots, setSlots] = useState<DerivedSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const today = todayIso();
 
-  const [newSlotTime, setNewSlotTime] = useState('');
+  useEffect(() => {
+    if (!user) return;
+    getDoctorSchedule(user.id, today)
+      .then((data) => setSlots(data.slots || []))
+      .catch(() => setSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [user, today]);
 
   // Urgency Tier Sorting (EMERGENCY red flag at top)
   const sortedQueue = [...appointments].sort((a, b) => {
@@ -101,22 +110,6 @@ function DoctorDashboardContent() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const toggleSlotBlock = (slotId: string) => {
-    setSlots(
-      slots.map((s) =>
-        s.id === slotId ? { ...s, status: s.status === 'AVAILABLE' ? 'BLOCKED' : 'AVAILABLE' } : s
-      )
-    );
-  };
-
-  const handleAddSlot = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSlotTime) return;
-
-    setSlots([...slots, { id: `SLOT-${slots.length + 1}`, time: newSlotTime, status: 'AVAILABLE' }]);
-    setNewSlotTime('');
   };
 
   const emergencyCount = sortedQueue.filter((a) => a.triage_urgency === 'EMERGENCY').length;
@@ -174,9 +167,29 @@ function DoctorDashboardContent() {
         ))}
       </section>
 
-      {/* Ollama AI Clinical Tools Suite */}
+      {/* The AI suite lives on its own page now — the dashboard links to it
+          instead of embedding it, so the workspace stays about the day's
+          patients. */}
       <div className="mt-4">
-        <AIDoctorTools />
+        <Link href="/doctor/ai" className="panel d-flex flex-wrap align-items-center justify-content-between gap-3 text-decoration-none">
+          <div className="d-flex align-items-center gap-3">
+            <span className="page-icon">
+              <i className="bi bi-stars text-warning" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="h5 mb-1 section-title">
+                <span>Clinical AI Suite</span>
+              </h2>
+              <p className="text-muted mb-0">
+                SOAP generator, lab report analyser, no-show predictor and a clinical assistant — answered live by the
+                Ollama model panel.
+              </p>
+            </div>
+          </div>
+          <span className="btn btn-primary btn-sm">
+            Open AI Suite <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
+          </span>
+        </Link>
       </div>
 
       <div className="row g-3 mt-1">
@@ -189,7 +202,7 @@ function DoctorDashboardContent() {
                   <i className="bi bi-list-ol" aria-hidden="true" />
                   <span>Urgency Triage Queue</span>
                 </h2>
-                <p className="text-muted mb-0">FR-3.7 — sorted by rule engine score.</p>
+                <p className="text-muted mb-0">Sorted by triage urgency score.</p>
               </div>
             </div>
 
@@ -308,64 +321,42 @@ function DoctorDashboardContent() {
               <div>
                 <h2 className="h5 mb-1 section-title">
                   <i className="bi bi-calendar2-range" aria-hidden="true" />
-                  <span>Schedule Slot Manager</span>
+                  <span>Today&apos;s Slots</span>
                 </h2>
-                <p className="text-muted mb-0">FR-3.1 / FR-3.6</p>
+                <p className="text-muted mb-0">Generated from your saved consulting hours.</p>
               </div>
+              <Link className="btn btn-sm btn-outline-primary" href="/doctor/schedule">
+                Manage hours
+              </Link>
             </div>
 
-            <div className="d-grid gap-2">
-              {slots.map((slot) => (
-                <div className="settings-row" key={slot.id}>
-                  <span>
-                    <strong>{slot.time}</strong>
-                    <small>
-                      <span
-                        className={`badge ${
-                          slot.status === 'AVAILABLE'
-                            ? 'text-bg-success'
-                            : slot.status === 'BOOKED'
-                              ? 'text-bg-info'
-                              : 'text-bg-danger'
-                        }`}
-                      >
-                        {slot.status}
-                      </span>
-                    </small>
-                  </span>
-
-                  {slot.status !== 'BOOKED' && (
-                    <button
-                      className={`btn btn-sm ${slot.status === 'AVAILABLE' ? 'btn-outline-danger' : 'btn-light'}`}
-                      type="button"
-                      onClick={() => toggleSlotBlock(slot.id)}
-                    >
-                      <i className={slot.status === 'AVAILABLE' ? 'bi bi-lock' : 'bi bi-unlock'} aria-hidden="true" />
-                      {slot.status === 'AVAILABLE' ? 'Block' : 'Release'}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <form className="pt-3 mt-3 border-top" onSubmit={handleAddSlot}>
-              <label className="form-label" htmlFor="newSlot">
-                Add custom 30-minute availability slot
-              </label>
-              <div className="d-flex gap-2">
-                <input
-                  className="form-control"
-                  id="newSlot"
-                  type="text"
-                  placeholder="e.g. 04:00 PM - 04:30 PM"
-                  value={newSlotTime}
-                  onChange={(e) => setNewSlotTime(e.target.value)}
-                />
-                <button className="btn btn-primary" type="submit">
-                  <i className="bi bi-plus-lg" aria-hidden="true" />
-                </button>
+            {slotsLoading ? (
+              <p className="text-muted small mb-0">Loading today&apos;s slots…</p>
+            ) : slots.length === 0 ? (
+              <div className="empty-state">
+                <i className="bi bi-calendar2-x" aria-hidden="true" />
+                <p className="mb-2">You have no consulting hours set for today.</p>
+                <Link className="btn btn-sm btn-primary" href="/doctor/schedule">
+                  Set your availability
+                </Link>
               </div>
-            </form>
+            ) : (
+              <div className="d-grid gap-2" style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                {slots.map((slot) => (
+                  <div className="settings-row" key={slot.start_time}>
+                    <span>
+                      <strong>
+                        {slot.start_time} – {slot.end_time}
+                      </strong>
+                      <small>{slot.available ? 'Open for booking' : `Booked · ${slot.booked_by}`}</small>
+                    </span>
+                    <span className={`badge ${slot.available ? 'text-bg-success' : 'text-bg-info'}`}>
+                      {slot.available ? 'AVAILABLE' : slot.status || 'BOOKED'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

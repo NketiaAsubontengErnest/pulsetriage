@@ -1,100 +1,119 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Faq } from '@/components/public/faq';
 
-const STATS = [
-  { value: '< 3 min', label: 'Symptom intake' },
-  { value: '4', label: 'Urgency tiers' },
-  { value: '30 min', label: 'Consultation slots' },
-  { value: '0', label: 'Booking collisions' },
-];
+interface PublicStats {
+  verified_doctors: number;
+  specialties: number;
+  consultations_completed: number;
+  assessments_run: number;
+}
 
-const PROBLEMS = [
-  'Acute chest pain queued behind routine certificate requests.',
-  'Doctors see the patient for the first time at the consultation.',
-  'Phone-based scheduling loses slots to double bookings.',
-  'No record of why a case was prioritised the way it was.',
-];
-
-const SOLUTIONS = [
-  'A deterministic rule engine scores every symptom set 0–100.',
-  'Red-flag screening redirects emergencies before booking opens.',
-  'Triage summaries reach the doctor ahead of the appointment.',
-  'Every triage, booking and payment writes an immutable audit row.',
-];
-
-const STEPS = [
+const PRINCIPLES = [
   {
-    title: 'Register',
-    copy: 'Create a patient account with your name, email and phone in under a minute.',
+    numeral: 'I',
+    title: 'Clinical urgency decides the order',
+    copy: 'A deterministic rule engine scores every symptom set from 0 to 100 and sorts the queue by how sick the patient is — not by who called first.',
   },
   {
-    title: 'Describe symptoms',
-    copy: 'A guided wizard captures your symptom category, 1–10 severity, duration and red flags.',
+    numeral: 'II',
+    title: 'Emergencies never wait for a slot',
+    copy: 'Six critical indicators short-circuit the assessment to EMERGENCY, withhold the booking button, and direct the patient to emergency services.',
   },
   {
-    title: 'Get triaged',
-    copy: 'The engine returns a 0–100 severity score, an urgency tier and a recommended specialty.',
+    numeral: 'III',
+    title: 'The clinician reads the case first',
+    copy: 'Symptoms, duration, pain score and red flags reach the doctor before the consultation opens, so the appointment starts already informed.',
   },
   {
-    title: 'Book & pay',
-    copy: 'Pick a matching specialist, lock a 30-minute slot and complete simulated checkout.',
+    numeral: 'IV',
+    title: 'Every decision leaves a record',
+    copy: 'Registrations, assessments, bookings and payments append to a tamper-evident trail, so any prioritisation can be explained after the fact.',
   },
 ];
 
-const FEATURES = [
+const JOURNEY = [
   {
-    icon: 'bi-cpu',
-    title: 'Deterministic rule engine',
-    copy: 'Rules-as-data thresholds, priority weights and red-flag short-circuits — no black box, fully explainable.',
+    step: '01',
+    title: 'Describe your symptoms',
+    copy: 'A guided intake captures the symptom category, a 1–10 severity rating, how long it has lasted and any warning signs.',
   },
   {
-    icon: 'bi-shield-exclamation',
-    title: 'Red-flag safety screening',
-    copy: 'Six critical indicators immediately escalate to EMERGENCY and route the patient to emergency services.',
+    step: '02',
+    title: 'Receive an urgency tier',
+    copy: 'The engine returns a severity score, one of four urgency tiers and the specialty best suited to the presentation.',
   },
   {
-    icon: 'bi-calendar2-check',
-    title: 'Specialist slot booking',
-    copy: 'Doctor availability is divided into 30-minute consultation windows with status tracked end to end.',
+    step: '03',
+    title: 'Book the right specialist',
+    copy: 'Choose from the consulting hours each doctor actually publishes. Slots already taken cannot be selected.',
   },
   {
-    icon: 'bi-credit-card',
-    title: 'Simulated checkout',
-    copy: 'Mobile Money and card flows with transaction references, logged as an explicit technical-debt item.',
-  },
-  {
-    icon: 'bi-bell',
-    title: 'Notification dispatch',
-    copy: 'Triage results, booking confirmations and reminders queue through an inspectable dispatch stream.',
-  },
-  {
-    icon: 'bi-file-earmark-text',
-    title: 'Immutable audit trail',
-    copy: 'Registrations, triage submissions, bookings and payments all append to a tamper-evident log.',
+    step: '04',
+    title: 'Consult and receive notes',
+    copy: 'Meet by secure video, then receive the signed clinical record — history, assessment, prescriptions and follow-up.',
   },
 ];
 
-const ROLES = [
-  {
-    icon: 'bi-person-heart',
-    role: 'Patients',
-    copy: 'Run triage, discover the right specialist and manage your own appointments.',
-    points: ['Symptom auto-triage wizard', 'Verified specialist directory', 'Reschedule and cancel'],
-  },
+const CAPABILITIES = [
   {
     icon: 'bi-clipboard2-pulse',
-    role: 'Doctors',
-    copy: 'Work a queue that is already sorted by clinical urgency, not arrival time.',
-    points: ['Severity-sorted patient queue', 'Triage summary before consult', 'Slot availability manager'],
+    title: 'Symptom triage engine',
+    copy: 'Transparent thresholds, priority weights and red-flag short-circuits. Explainable by design — never a black box.',
   },
   {
-    icon: 'bi-shield-check',
-    role: 'Administrators',
-    copy: 'Govern the registry, tune the engine and review everything the system did.',
-    points: ['Doctor licence verification', 'Rule configurator & simulator', 'Audit and dispatch logs'],
+    icon: 'bi-camera-video',
+    title: 'Secure video consultations',
+    copy: 'Peer-to-peer telehealth rooms with live chat, screen sharing and the patient record beside the call.',
+  },
+  {
+    icon: 'bi-calendar2-week',
+    title: 'Real availability',
+    copy: 'Each clinician publishes their consulting hours; bookable slots are generated from them and checked again on the server.',
+  },
+  {
+    icon: 'bi-stars',
+    title: 'Clinical decision support',
+    copy: 'A panel of AI models drafts SOAP notes, reads lab reports and answers clinical questions — always attributed and reviewable.',
+  },
+  {
+    icon: 'bi-shield-lock',
+    title: 'Governed access',
+    copy: 'Separate patient, clinician and administrative portals, with licence verification before a doctor can accept bookings.',
+  },
+  {
+    icon: 'bi-journal-text',
+    title: 'Complete medical record',
+    copy: 'Assessments, consultations and signed notes stay attached to the patient file and travel with them to the next visit.',
+  },
+];
+
+const AUDIENCES = [
+  {
+    icon: 'bi-person-heart',
+    role: 'For patients',
+    copy: 'Understand how urgent your symptoms are, find the right specialist, and manage your own appointments.',
+    points: ['Guided symptom assessment', 'Verified specialist directory', 'Reschedule or cancel any time'],
+    href: '/register',
+    cta: 'Create an account',
+  },
+  {
+    icon: 'bi-hospital',
+    role: 'For clinicians',
+    copy: 'Open a queue that is already ordered by clinical priority, with the intake record waiting beside the call.',
+    points: ['Urgency-sorted patient queue', 'Intake record during consultation', 'Publish your consulting hours'],
+    href: '/login',
+    cta: 'Clinician sign in',
+  },
+  {
+    icon: 'bi-diagram-3',
+    role: 'For administrators',
+    copy: 'Govern the clinician registry, tune the triage rules, and review everything the system has done.',
+    points: ['Licence verification', 'Rule configuration and testing', 'Full activity and audit trail'],
+    href: '/login',
+    cta: 'Administrator sign in',
   },
 ];
 
@@ -102,283 +121,231 @@ const FAQS = [
   {
     question: 'Is PulseTriage a replacement for emergency care?',
     answer:
-      'No. Triage is a prioritisation aid for non-emergency outpatient scheduling. When red-flag indicators are selected the assessment short-circuits to EMERGENCY and directs the patient to call 112 rather than book a slot.',
+      'No. Triage here is a prioritisation aid for non-emergency outpatient scheduling. When red-flag indicators are selected, the assessment short-circuits to EMERGENCY and directs the patient to call emergency services rather than book a slot.',
   },
   {
     question: 'How is the severity score calculated?',
     answer:
-      'Reported severity contributes up to 80 points, acute onset within two days adds 15, a longer-standing complaint adds 5, and each red flag adds 10 — capped at 100. Scores of 80, 60 and 35 are the boundaries between EMERGENCY, URGENT, SEMI_URGENT and ROUTINE.',
+      'Reported severity contributes up to 80 points, acute onset within two days adds 15, a longer-standing complaint adds 5, and each red flag adds 10 — capped at 100. Scores of 80, 60 and 35 are the boundaries between the four urgency tiers.',
+  },
+  {
+    question: 'Can two patients book the same slot?',
+    answer:
+      'No. Bookable slots are generated from the consulting hours each clinician publishes, and the server re-checks availability inside a transaction before an appointment is written. A slot taken in the meantime is refused.',
   },
   {
     question: 'Are the payments real?',
     answer:
-      'No. Checkout is a simulated gateway that produces realistic transaction references and status transitions without contacting a payment provider. It is documented as Technical Debt #1, with a Paystack and Hubtel integration planned for v2.0.',
+      'No. Checkout is a simulated gateway that produces realistic transaction references and status transitions without contacting a payment provider. A live provider integration is planned.',
   },
   {
-    question: 'Who can see my triage assessment?',
+    question: 'How is AI used, and can I rely on it?',
     answer:
-      'Your assessment is stored against your patient account and surfaced to the clinician you book with, so they can review your urgency profile before the consultation begins.',
+      'AI assists clinicians with drafting notes and decision support. Every suggestion is labelled with the models that produced it and how strongly they agreed, and nothing reaches a patient record until the attending clinician reviews and signs it.',
+  },
+  {
+    question: 'Who can see my assessment?',
+    answer:
+      'Your assessment is stored against your account and shown to the clinician you book with, so they can review your urgency profile before the consultation begins.',
   },
 ];
 
 export default function Home() {
+  // Headline figures come from the database. If the request fails the section
+  // simply renders its descriptive labels without numbers rather than inventing
+  // them.
+  const [stats, setStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/public/stats', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && !data.error) setStats(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const figures = [
+    { value: stats?.verified_doctors, label: 'Verified clinicians' },
+    { value: stats?.specialties, label: 'Specialties covered' },
+    { value: stats?.assessments_run, label: 'Assessments completed' },
+    { value: stats?.consultations_completed, label: 'Consultations concluded' },
+  ];
+
   return (
-    <>
+    <div className="lp">
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="public-hero">
-        <div className="hero-grid hero-split">
-          <div>
-            <p className="eyebrow mb-2">
-              <i className="bi bi-mortarboard me-1" aria-hidden="true" />
-              CSCD 602 Advanced Software Engineering
-            </p>
+      <section className="lp-hero">
+        <div className="lp-hero-inner">
+          <p className="lp-eyebrow">Telehealth triage &amp; appointment system</p>
 
-            <h1 className="hero-title">
-              Urgent cases first.
-              <br />
-              <span className="accent">Not whoever called first.</span>
-            </h1>
+          <h1 className="lp-display">
+            The most urgent patient
+            <br />
+            should be seen first.
+          </h1>
 
-            <p className="hero-lead">
-              PulseTriage scores every patient&apos;s symptoms against a clinical rule engine, redirects genuine
-              emergencies, and books the remaining cases with the right specialist — replacing first-come,
-              first-served outpatient queues with clinical priority.
-            </p>
+          <p className="lp-lead">
+            PulseTriage assesses every patient&apos;s symptoms against a transparent clinical rule engine, routes genuine
+            emergencies to emergency care, and books everyone else with the right specialist at a time that clinician
+            genuinely has free.
+          </p>
 
-            <div className="d-flex flex-wrap gap-2">
-              <Link className="btn btn-primary" href="/register">
-                <i className="bi bi-person-plus" aria-hidden="true" /> Register as a Patient
-              </Link>
-              <Link className="btn btn-outline-secondary" href="/features">
-                <i className="bi bi-compass" aria-hidden="true" /> See How It Works
-              </Link>
-            </div>
-
-            <div className="hero-points">
-              <span>
-                <i className="bi bi-check-circle-fill" aria-hidden="true" /> Three role-based portals
-              </span>
-              <span>
-                <i className="bi bi-check-circle-fill" aria-hidden="true" /> Red-flag screening
-              </span>
-              <span>
-                <i className="bi bi-check-circle-fill" aria-hidden="true" /> Full audit trail
-              </span>
-            </div>
+          <div className="lp-actions">
+            <Link className="lp-btn lp-btn-primary" href="/register">
+              Create a patient account
+            </Link>
+            <Link className="lp-btn lp-btn-ghost" href="/features">
+              Explore the platform
+            </Link>
           </div>
 
-          {/* Product preview — a triage result as the patient sees it. */}
-          <div className="hero-preview" aria-hidden="true">
-            <div className="hero-preview-head">
-              <span className="d-inline-flex align-items-center gap-2 fw-bold">
-                <i className="bi bi-activity text-primary" />
-                Triage result
-              </span>
-              <span className="hero-preview-dots">
-                <span />
-                <span />
-                <span />
-              </span>
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <div className="score-dial">
-                95<small>/ 100</small>
-              </div>
-              <div>
-                <span className="urgency-badge urgency-emergency">
-                  <i className="bi bi-exclamation-octagon-fill" />
-                  Emergency
-                </span>
-                <p className="text-muted small mb-0 mt-2">
-                  Red flag detected — proceed immediately to the nearest emergency room.
-                </p>
-              </div>
-            </div>
-
-            <div className="hero-preview-row">
-              <span>Primary symptom</span>
-              <strong>Chest pain</strong>
-            </div>
-            <div className="hero-preview-row">
-              <span>Onset</span>
-              <strong>Sudden (&lt; 6 hours)</strong>
-            </div>
-            <div className="hero-preview-row">
-              <span>Specialty</span>
-              <strong>Emergency Cardiology</strong>
-            </div>
-          </div>
+          <p className="lp-hero-note">
+            <i className="bi bi-shield-check" aria-hidden="true" /> Not for medical emergencies — if symptoms are severe,
+            call your local emergency number immediately.
+          </p>
         </div>
       </section>
 
-      {/* ── Stat band ────────────────────────────────────────────────────── */}
-      <section className="stat-band public-section" aria-label="Platform figures">
-        {STATS.map((stat) => (
-          <div key={stat.label}>
-            <strong>{stat.value}</strong>
-            <span>{stat.label}</span>
+      {/* ── Figures ──────────────────────────────────────────────────────── */}
+      <section className="lp-figures" aria-label="Platform figures">
+        {figures.map((figure) => (
+          <div className="lp-figure" key={figure.label}>
+            <strong>{figure.value === undefined ? '—' : figure.value.toLocaleString()}</strong>
+            <span>{figure.label}</span>
           </div>
         ))}
       </section>
 
-      {/* ── Problem / solution ───────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">The problem</p>
-          <h2 className="h3">Outpatient queues ignore clinical urgency</h2>
-          <p>
-            In a first-come, first-served waiting room, the sickest patient is whoever happened to arrive early.
-            PulseTriage changes what determines the order.
+      {/* ── Principles ───────────────────────────────────────────────────── */}
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Our principles</p>
+          <h2 className="lp-heading">Four commitments that shape every decision</h2>
+          <p className="lp-section-lead">
+            In a first-come, first-served waiting room, the sickest patient is whoever happened to arrive early. These
+            are the rules we replaced that with.
           </p>
-        </div>
+        </header>
 
-        <div className="row g-3">
-          <div className="col-12 col-lg-6">
-            <div className="panel panel-accent accent-danger h-100">
-              <h3 className="h6 section-title mb-3">
-                <i className="bi bi-exclamation-triangle" aria-hidden="true" />
-                <span>Without triage</span>
-              </h3>
-              <ul className="compare-list">
-                {PROBLEMS.map((item) => (
-                  <li key={item}>
-                    <i className="bi bi-x-circle-fill text-danger" aria-hidden="true" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="col-12 col-lg-6">
-            <div className="panel panel-accent accent-success h-100">
-              <h3 className="h6 section-title mb-3">
-                <i className="bi bi-check2-circle" aria-hidden="true" />
-                <span>With PulseTriage</span>
-              </h3>
-              <ul className="compare-list">
-                {SOLUTIONS.map((item) => (
-                  <li key={item}>
-                    <i className="bi bi-check-circle-fill text-success" aria-hidden="true" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ─────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">How it works</p>
-          <h2 className="h3">From symptom to confirmed slot in four steps</h2>
-          <p>The whole journey runs in the browser — no phone calls, no waiting room.</p>
-        </div>
-
-        <div className="step-flow">
-          {STEPS.map((step, index) => (
-            <article className="step-item" key={step.title}>
-              <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-              <h3>{step.title}</h3>
-              <p>{step.copy}</p>
+        <div className="lp-principles">
+          {PRINCIPLES.map((principle) => (
+            <article className="lp-principle" key={principle.numeral}>
+              <span className="lp-numeral" aria-hidden="true">
+                {principle.numeral}
+              </span>
+              <div>
+                <h3>{principle.title}</h3>
+                <p>{principle.copy}</p>
+              </div>
             </article>
           ))}
         </div>
       </section>
 
-      {/* ── Capabilities ─────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">Capabilities</p>
-          <h2 className="h3">Everything the platform does</h2>
-          <p>Six subsystems, each documented against the requirements specification.</p>
-        </div>
+      {/* ── Journey ──────────────────────────────────────────────────────── */}
+      <section className="lp-section lp-section-tinted">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">How it works</p>
+          <h2 className="lp-heading">From first symptom to signed clinical note</h2>
+        </header>
 
-        <div className="row g-3">
-          {FEATURES.map((feature) => (
-            <div className="col-12 col-md-6 col-xl-4" key={feature.title}>
-              <article className="feature-tile">
-                <span className="page-icon">
-                  <i className={`bi ${feature.icon}`} aria-hidden="true" />
-                </span>
-                <h3>{feature.title}</h3>
-                <p>{feature.copy}</p>
-              </article>
-            </div>
+        <ol className="lp-journey">
+          {JOURNEY.map((stage) => (
+            <li key={stage.step}>
+              <span className="lp-step" aria-hidden="true">
+                {stage.step}
+              </span>
+              <h3>{stage.title}</h3>
+              <p>{stage.copy}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ── Capabilities ─────────────────────────────────────────────────── */}
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Capabilities</p>
+          <h2 className="lp-heading">Built for the whole episode of care</h2>
+          <p className="lp-section-lead">
+            Assessment, scheduling, consultation and the record that follows — one system rather than four that do not
+            speak to each other.
+          </p>
+        </header>
+
+        <div className="lp-capabilities">
+          {CAPABILITIES.map((capability) => (
+            <article className="lp-capability" key={capability.title}>
+              <i className={`bi ${capability.icon}`} aria-hidden="true" />
+              <h3>{capability.title}</h3>
+              <p>{capability.copy}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      {/* ── Roles ────────────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="section-head center">
-          <p className="eyebrow mb-1">Built for three audiences</p>
-          <h2 className="h3">One platform, three workspaces</h2>
-          <p>Each role signs in to a portal scoped to what that role actually needs to do.</p>
-        </div>
+      {/* ── Audiences ────────────────────────────────────────────────────── */}
+      <section className="lp-section lp-section-tinted">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Who it serves</p>
+          <h2 className="lp-heading">Three portals, one clinical record</h2>
+        </header>
 
-        <div className="row g-3">
-          {ROLES.map((role) => (
-            <div className="col-12 col-lg-4" key={role.role}>
-              <article className="panel h-100">
-                <span className="page-icon mb-3">
-                  <i className={`bi ${role.icon}`} aria-hidden="true" />
-                </span>
-                <h3 className="h5 mb-2">{role.role}</h3>
-                <p className="text-muted small">{role.copy}</p>
-                <ul className="compare-list mt-3">
-                  {role.points.map((point) => (
-                    <li key={point}>
-                      <i className="bi bi-check2 text-success" aria-hidden="true" />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </div>
+        <div className="lp-audiences">
+          {AUDIENCES.map((audience) => (
+            <article className="lp-audience" key={audience.role}>
+              <i className={`bi ${audience.icon}`} aria-hidden="true" />
+              <h3>{audience.role}</h3>
+              <p>{audience.copy}</p>
+              <ul>
+                {audience.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+              <Link className="lp-audience-link" href={audience.href}>
+                {audience.cta} <i className="bi bi-arrow-right" aria-hidden="true" />
+              </Link>
+            </article>
           ))}
         </div>
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section className="public-section">
-        <div className="row g-3">
-          <div className="col-12 col-lg-4">
-            <div className="section-head">
-              <p className="eyebrow mb-1">Questions</p>
-              <h2 className="h3">Before you start</h2>
-              <p>The things patients ask most often about how triage works.</p>
-            </div>
-            <Link className="btn btn-outline-secondary btn-sm" href="/contact">
-              <i className="bi bi-chat-dots" aria-hidden="true" /> Ask something else
+      <section className="lp-section">
+        <header className="lp-section-head">
+          <p className="lp-eyebrow">Common questions</p>
+          <h2 className="lp-heading">What patients and clinicians ask us</h2>
+        </header>
+
+        <div className="lp-faq">
+          <Faq items={FAQS} />
+        </div>
+      </section>
+
+      {/* ── Closing call to action ───────────────────────────────────────── */}
+      <section className="lp-cta">
+        <div className="lp-cta-inner">
+          <p className="lp-eyebrow lp-eyebrow-inverse">Get started</p>
+          <h2 className="lp-display lp-display-sm">Begin with a symptom assessment</h2>
+          <p>
+            It takes about three minutes, and it ends with a clear urgency tier, a recommended specialty and a
+            consultation you can book straight away.
+          </p>
+          <div className="lp-actions lp-actions-center">
+            <Link className="lp-btn lp-btn-light" href="/register">
+              Create an account
+            </Link>
+            <Link className="lp-btn lp-btn-outline-light" href="/doctors">
+              Browse our clinicians
             </Link>
           </div>
-
-          <div className="col-12 col-lg-8">
-            <Faq items={FAQS} />
-          </div>
         </div>
       </section>
-
-      {/* ── CTA ──────────────────────────────────────────────────────────── */}
-      <section className="cta-band public-section">
-        <h2 className="h3">Start your symptom assessment</h2>
-        <p>
-          Create a patient account and run your first triage in under three minutes. Doctors and administrators can
-          sign in to their existing workspaces.
-        </p>
-        <div className="d-flex flex-wrap justify-content-center gap-2">
-          <Link className="btn btn-light" href="/register">
-            <i className="bi bi-person-plus" aria-hidden="true" /> Register as a Patient
-          </Link>
-          <Link className="btn btn-outline-light" href="/login">
-            <i className="bi bi-box-arrow-in-right" aria-hidden="true" /> Sign In
-          </Link>
-        </div>
-      </section>
-    </>
+    </div>
   );
 }

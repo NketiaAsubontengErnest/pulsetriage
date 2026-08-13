@@ -18,6 +18,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [demoLoading, setDemoLoading] = useState<string | null>(null);
@@ -62,103 +63,158 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <>
-      <ThemeToggle className="auth-theme-toggle" />
+  const busy = isSubmitting || demoLoading !== null;
 
-      <main className="auth-page">
-        <section className="auth-card">
-          <Link className="auth-brand" href="/">
-            <span className="brand-icon">
-              <i className="bi bi-activity" aria-hidden="true" />
-            </span>
-            <span>
-              <strong>PulseTriage</strong>
-              <small>Sign in to your telehealth workspace.</small>
-            </span>
+  return (
+    <main className="auth-page">
+      {/* ── Editorial panel (large screens only) ──────────────────────────── */}
+      <aside className="auth-aside">
+        <Link className="auth-brand" href="/">
+          <i className="bi bi-activity" aria-hidden="true" />
+          PulseTriage
+        </Link>
+
+        <div>
+          <h2>
+            The most urgent patient
+            <br />
+            should be seen first.
+          </h2>
+          <p>
+            Sign in to your workspace — whether you are managing your own care, working a clinical queue ordered by
+            urgency, or governing the registry.
+          </p>
+
+          <ul className="auth-points">
+            <li>
+              <i className="bi bi-check-lg" aria-hidden="true" />
+              Symptom assessment before booking
+            </li>
+            <li>
+              <i className="bi bi-check-lg" aria-hidden="true" />
+              Secure video consultations
+            </li>
+            <li>
+              <i className="bi bi-check-lg" aria-hidden="true" />
+              Your complete clinical record
+            </li>
+          </ul>
+        </div>
+
+        <p className="auth-footnote">
+          Not for medical emergencies. If symptoms are severe, call your local emergency number.
+        </p>
+      </aside>
+
+      {/* ── Form ─────────────────────────────────────────────────────────── */}
+      <div className="auth-main">
+        <div className="auth-form-wrap">
+          <div className="auth-topbar">
+            <ThemeToggle />
+          </div>
+
+          <Link className="auth-mobile-brand" href="/">
+            <i className="bi bi-activity" aria-hidden="true" />
+            PulseTriage
           </Link>
 
-          <form onSubmit={handleLoginSubmit} noValidate>
-            <div className="mb-4">
-              <p className="eyebrow mb-1">Secure Access</p>
-              <h1 className="h3 mb-1">Login</h1>
-              <p className="text-muted mb-0">Patient, doctor and administrator portals.</p>
+          <h1 className="auth-title">Welcome back</h1>
+          <p className="auth-sub">Sign in to continue to your workspace.</p>
+
+          {errorMsg && (
+            <div className="auth-alert" role="alert">
+              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
+              <span>{errorMsg}</span>
             </div>
+          )}
 
-            {errorMsg && (
-              <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-                <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-                <span className="small">{errorMsg}</span>
-              </div>
-            )}
-
-            <div className="mb-3">
-              <label className="form-label" htmlFor="loginEmail">
-                Email address
-              </label>
+          <form onSubmit={handleLoginSubmit} noValidate>
+            <div className="lp-field">
+              <label htmlFor="loginEmail">Email address</label>
               <input
-                className="form-control"
                 id="loginEmail"
                 type="email"
                 autoComplete="email"
-                placeholder="patient@ug.edu.gh"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
               />
             </div>
 
-            <div className="mb-4">
-              <label className="form-label" htmlFor="loginPassword">
-                Password
-              </label>
-              <input
-                className="form-control"
-                id="loginPassword"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+            <div className="lp-field">
+              <label htmlFor="loginPassword">Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="loginPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{ paddingRight: '2.75rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: '0.6rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 0,
+                    color: 'inherit',
+                    opacity: 0.6,
+                  }}
+                >
+                  <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
-            <button className="btn btn-primary w-100" type="submit" disabled={isSubmitting}>
-              <i className={isSubmitting ? 'bi bi-arrow-repeat' : 'bi bi-box-arrow-in-right'} aria-hidden="true" />
-              {isSubmitting ? 'Signing in…' : 'Sign In'}
+            <button type="submit" className="lp-btn lp-btn-primary auth-submit" disabled={busy}>
+              {isSubmitting ? (
+                <>
+                  <i className="bi bi-arrow-repeat spin" aria-hidden="true" /> Signing in…
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-box-arrow-in-right" aria-hidden="true" /> Sign in
+                </>
+              )}
             </button>
           </form>
 
-          <div className="mt-4 pt-3 border-top">
-            <p className="eyebrow mb-2">Quick demo login — password123</p>
-            <div className="d-grid gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.role}
-                  className="btn btn-light btn-sm justify-content-between"
-                  type="button"
-                  disabled={!!demoLoading}
-                  onClick={() => handleDemoLogin(account.role, account.email)}
-                >
-                  <span className="d-inline-flex align-items-center gap-2">
-                    <i
-                      className={demoLoading === account.role ? 'bi bi-arrow-repeat' : `bi ${account.icon}`}
-                      aria-hidden="true"
-                    />
-                    <span>
-                      {account.role.charAt(0) + account.role.slice(1).toLowerCase()} — {account.name}
-                    </span>
-                  </span>
-                  <span className="text-muted small d-none d-sm-inline">{account.email}</span>
-                </button>
-              ))}
-            </div>
+          <div className="auth-divider">Or try a demonstration account</div>
+
+          <div className="auth-demo">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.role}
+                type="button"
+                onClick={() => handleDemoLogin(account.role, account.email)}
+                disabled={busy}
+              >
+                <i className={`bi ${account.icon}`} aria-hidden="true" />
+                <span className="flex-grow-1">
+                  <span className="auth-demo-name">{account.name}</span>
+                  <span className="auth-demo-role">{account.role}</span>
+                </span>
+                {demoLoading === account.role ? (
+                  <i className="bi bi-arrow-repeat spin" aria-hidden="true" />
+                ) : (
+                  <i className="bi bi-arrow-right" aria-hidden="true" />
+                )}
+              </button>
+            ))}
           </div>
 
-          <div className="auth-footer">
-            New patient? <Link href="/register">Create an account</Link>
-          </div>
-        </section>
-      </main>
-    </>
+          <p className="auth-foot">
+            New to PulseTriage? <Link href="/register">Create a patient account</Link>
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }

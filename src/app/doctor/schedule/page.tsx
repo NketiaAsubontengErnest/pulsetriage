@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { useAuth } from '@/lib/auth-context';
-import { getAppointments } from '@/lib/api';
+import { getAppointments, getDoctorSchedule, saveDoctorSchedule } from '@/lib/api';
 import { Appointment } from '@/lib/types';
+import { DAY_NAMES, DerivedSlot, WeeklyAvailability } from '@/lib/schedule';
 
 export default function DoctorScheduleManagerPage() {
   return (
@@ -25,49 +26,97 @@ export default function DoctorScheduleManagerPage() {
   );
 }
 
+const todayIso = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+/** One editable row per weekday, seeded from whatever is already in the database. */
+function toWeekRows(availability: WeeklyAvailability[]): WeeklyAvailability[] {
+  return DAY_NAMES.map((_, day) => {
+    const existing = availability.find((a) => a.day_of_week === day);
+    return (
+      existing || {
+        day_of_week: day,
+        start_time: '09:00',
+        end_time: '17:00',
+        slot_duration_mins: 30,
+        is_active: false,
+      }
+    );
+  });
+}
+
 function ScheduleManagerContent() {
-  const [slots, setSlots] = useState([
-    { id: '1', date: '2026-08-13', start_time: '09:00', end_time: '09:30', is_blocked: false },
-    { id: '2', date: '2026-08-13', start_time: '09:30', end_time: '10:00', is_blocked: false },
-    { id: '3', date: '2026-08-13', start_time: '10:00', end_time: '10:30', is_blocked: true },
-    { id: '4', date: '2026-08-13', start_time: '11:00', end_time: '11:30', is_blocked: false },
-  ]);
-
-  const [newTime, setNewTime] = useState('14:00');
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Slots booked by real patients, read from the database.
   const { user } = useAuth();
+
+  const [week, setWeek] = useState<WeeklyAvailability[]>(toWeekRows([]));
+  const [previewDate, setPreviewDate] = useState(todayIso());
+  const [slots, setSlots] = useState<DerivedSlot[]>([]);
   const [bookedSlots, setBookedSlots] = useState<Appointment[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState('');
+
+  const loadSchedule = useCallback(
+    async (date: string) => {
+      if (!user) return;
+      try {
+        const data = await getDoctorSchedule(user.id, date);
+        setWeek(toWeekRows(data.availability || []));
+        setSlots(data.slots || []);
+        setLoadError('');
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load your schedule');
+      }
+    },
+    [user]
+  );
 
   useEffect(() => {
     if (!user) return;
-    getAppointments({ doctor_user_id: user.id })
-      .then((apps) => setBookedSlots(apps.filter((a) => a.status !== 'CANCELLED')))
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load booked slots'))
-      .finally(() => setIsLoading(false));
+    setIsLoading(true);
+    Promise.all([
+      loadSchedule(previewDate),
+      getAppointments({ doctor_user_id: user.id })
+        .then((apps) => setBookedSlots(apps.filter((a) => a.status !== 'CANCELLED')))
+        .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load booked slots')),
+    ]).finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const toggleBlockSlot = (id: string) => {
-    setSlots(slots.map((s) => (s.id === id ? { ...s, is_blocked: !s.is_blocked } : s)));
-    setSuccessMsg('Slot availability updated.');
-    setTimeout(() => setSuccessMsg(null), 3000);
+  // Re-derive the preview whenever the doctor looks at a different day.
+  useEffect(() => {
+    if (!user || isLoading) return;
+    void loadSchedule(previewDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewDate]);
+
+  const updateDay = (day: number, patch: Partial<WeeklyAvailability>) =>
+    setWeek((rows) => rows.map((row) => (row.day_of_week === day ? { ...row, ...patch } : row)));
+
+  const handleSave = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setSuccessMsg(null);
+    setLoadError('');
+    try {
+      // Inactive days are still sent so the doctor can re-enable them later
+      // with the hours they last used.
+      await saveDoctorSchedule(user.id, week);
+      await loadSchedule(previewDate);
+      setSuccessMsg('Availability saved. Patients booking with you now see exactly these slots.');
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save your availability');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleAddSlot = () => {
-    const newSlot = {
-      id: `slot-${Date.now()}`,
-      date: '2026-08-13',
-      start_time: newTime,
-      end_time: `${parseInt(newTime.split(':')[0])}:${parseInt(newTime.split(':')[1]) + 30}`,
-      is_blocked: false,
-    };
-    setSlots([...slots, newSlot]);
-    setSuccessMsg('New 30-minute consultation slot added.');
-    setTimeout(() => setSuccessMsg(null), 3000);
-  };
+  const activeDays = week.filter((d) => d.is_active).length;
 
   return (
     <>
@@ -80,23 +129,16 @@ function ScheduleManagerContent() {
             <p className="eyebrow mb-1">Availability Manager</p>
             <h1 className="h3 mb-1">Schedule Slot Manager</h1>
             <p className="text-muted mb-0">
-              Configure 30-minute consultation slots and block time for emergency leave.
+              Set the hours you consult on each weekday. Patients booking with you only ever see slots generated from
+              this.
             </p>
           </div>
         </div>
         <div className="heading-actions">
-          <div className="d-flex gap-2">
-            <input
-              className="form-control form-control-sm"
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              aria-label="New slot start time"
-            />
-            <button className="btn btn-primary btn-sm" type="button" onClick={handleAddSlot}>
-              <i className="bi bi-plus-lg" aria-hidden="true" /> Add Slot
-            </button>
-          </div>
+          <button className="btn btn-primary btn-sm" type="button" onClick={handleSave} disabled={isSaving || isLoading}>
+            <i className={`bi ${isSaving ? 'bi-arrow-repeat spin' : 'bi-save'}`} aria-hidden="true" />{' '}
+            {isSaving ? 'Saving…' : 'Save availability'}
+          </button>
         </div>
       </div>
 
@@ -115,15 +157,153 @@ function ScheduleManagerContent() {
       )}
 
       <div className="row g-3">
-        <div className="col-12 col-xl-6">
+        {/* ── Weekly availability, persisted to doctor_schedules ─────────────── */}
+        <div className="col-12 col-xl-7">
           <section className="panel h-100">
+            <div className="panel-header">
+              <div>
+                <h2 className="h5 mb-1 section-title">
+                  <i className="bi bi-calendar-week" aria-hidden="true" />
+                  <span>Weekly Consulting Hours</span>
+                </h2>
+                <p className="text-muted mb-0">Stored in the database and used to generate every bookable slot.</p>
+              </div>
+              <span className="badge text-bg-secondary">{activeDays} active day(s)</span>
+            </div>
+
+            {isLoading ? (
+              <p className="text-muted small mb-0">Loading your availability…</p>
+            ) : (
+              <div className="table-responsive">
+                <table className="table align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th style={{ width: '34%' }}>Day</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Slot</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {week.map((row) => (
+                      <tr key={row.day_of_week} className={row.is_active ? '' : 'opacity-50'}>
+                        <td>
+                          <div className="form-check mb-0">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`day-${row.day_of_week}`}
+                              checked={row.is_active}
+                              onChange={(e) => updateDay(row.day_of_week, { is_active: e.target.checked })}
+                            />
+                            <label className="form-check-label fw-semibold" htmlFor={`day-${row.day_of_week}`}>
+                              {DAY_NAMES[row.day_of_week]}
+                            </label>
+                          </div>
+                        </td>
+                        <td>
+                          <input
+                            type="time"
+                            className="form-control form-control-sm"
+                            value={row.start_time}
+                            disabled={!row.is_active}
+                            onChange={(e) => updateDay(row.day_of_week, { start_time: e.target.value })}
+                            aria-label={`${DAY_NAMES[row.day_of_week]} start time`}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="time"
+                            className="form-control form-control-sm"
+                            value={row.end_time}
+                            disabled={!row.is_active}
+                            onChange={(e) => updateDay(row.day_of_week, { end_time: e.target.value })}
+                            aria-label={`${DAY_NAMES[row.day_of_week]} end time`}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            className="form-select form-select-sm"
+                            value={row.slot_duration_mins}
+                            disabled={!row.is_active}
+                            onChange={(e) => updateDay(row.day_of_week, { slot_duration_mins: Number(e.target.value) })}
+                            aria-label={`${DAY_NAMES[row.day_of_week]} slot length`}
+                          >
+                            {[15, 20, 30, 45, 60].map((mins) => (
+                              <option key={mins} value={mins}>
+                                {mins} min
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ── Generated slots for one date ───────────────────────────────────── */}
+        <div className="col-12 col-xl-5">
+          <section className="panel h-100">
+            <div className="panel-header">
+              <div>
+                <h2 className="h5 mb-1 section-title">
+                  <i className="bi bi-clock-history" aria-hidden="true" />
+                  <span>Slots On A Given Day</span>
+                </h2>
+                <p className="text-muted mb-0">Exactly what the patient sees when booking.</p>
+              </div>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                style={{ maxWidth: '170px' }}
+                value={previewDate}
+                onChange={(e) => setPreviewDate(e.target.value)}
+                aria-label="Preview date"
+              />
+            </div>
+
+            {slots.length === 0 ? (
+              <div className="empty-state">
+                <i className="bi bi-calendar2-x" aria-hidden="true" />
+                <p className="mb-0">
+                  No consulting hours set for {DAY_NAMES[new Date(`${previewDate}T00:00:00`).getDay()]}. Tick that day on
+                  the left and save.
+                </p>
+              </div>
+            ) : (
+              <div className="d-grid gap-2" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                {slots.map((slot) => (
+                  <div className="settings-row" key={slot.start_time}>
+                    <span>
+                      <strong>
+                        {slot.start_time} – {slot.end_time}
+                      </strong>
+                      <small>{slot.available ? 'Open for booking' : `Booked · ${slot.booked_by}`}</small>
+                    </span>
+                    <span className={`badge ${slot.available ? 'text-bg-success' : 'text-bg-info'}`}>
+                      {slot.available ? 'AVAILABLE' : slot.status || 'BOOKED'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ── Every booking on the doctor's calendar ─────────────────────────── */}
+        <div className="col-12">
+          <section className="panel">
             <div className="panel-header">
               <div>
                 <h2 className="h5 mb-1 section-title">
                   <i className="bi bi-calendar2-check" aria-hidden="true" />
                   <span>Booked Consultation Slots</span>
                 </h2>
-                <p className="text-muted mb-0">Live from the database.</p>
+                <p className="text-muted mb-0">Every confirmed and pending appointment, live from the database.</p>
               </div>
               <span className="badge text-bg-info">{bookedSlots.length} booked</span>
             </div>
@@ -136,64 +316,24 @@ function ScheduleManagerContent() {
                 <p className="mb-0">No patients have booked a slot with you yet.</p>
               </div>
             ) : (
-              <div className="d-grid gap-2">
+              <div className="row g-2">
                 {bookedSlots.map((app) => (
-                  <div className="settings-row" key={app.id}>
-                    <span>
-                      <strong>
-                        {app.start_time} – {app.end_time}
-                      </strong>
-                      <small>
-                        {app.appointment_date} · {app.patient_name}
-                      </small>
-                    </span>
-                    <span className="badge text-bg-info">{app.status}</span>
+                  <div className="col-12 col-md-6 col-xl-4" key={app.id}>
+                    <div className="settings-row">
+                      <span>
+                        <strong>
+                          {app.start_time} – {app.end_time}
+                        </strong>
+                        <small>
+                          {app.appointment_date} · {app.patient_name}
+                        </small>
+                      </span>
+                      <span className="badge text-bg-info">{app.status}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-          </section>
-        </div>
-
-        <div className="col-12 col-xl-6">
-          <section className="panel h-100">
-            <div className="panel-header">
-              <div>
-                <h2 className="h5 mb-1 section-title">
-                  <i className="bi bi-clock-history" aria-hidden="true" />
-                  <span>Configured Time Slots</span>
-                </h2>
-                <p className="text-muted mb-0">Block a window to take it out of circulation.</p>
-              </div>
-              <span className="badge text-bg-secondary">{slots.length} slots</span>
-            </div>
-
-            <div className="d-grid gap-2">
-              {slots.map((s) => (
-                <div className="settings-row" key={s.id}>
-                  <span>
-                    <strong>
-                      {s.start_time} – {s.end_time}
-                    </strong>
-                    <small>Date: {s.date}</small>
-                  </span>
-
-                  <span className="d-inline-flex align-items-center gap-2">
-                    <span className={`badge ${s.is_blocked ? 'text-bg-danger' : 'text-bg-success'}`}>
-                      {s.is_blocked ? 'BLOCKED' : 'AVAILABLE'}
-                    </span>
-                    <button
-                      className={`btn btn-sm ${s.is_blocked ? 'btn-light' : 'btn-outline-danger'}`}
-                      type="button"
-                      onClick={() => toggleBlockSlot(s.id)}
-                    >
-                      <i className={s.is_blocked ? 'bi bi-unlock' : 'bi bi-lock'} aria-hidden="true" />
-                      {s.is_blocked ? 'Unblock' : 'Block'}
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </div>
           </section>
         </div>
       </div>

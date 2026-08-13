@@ -19,6 +19,7 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'Start Symptom Triage', href: '/triage', icon: 'bi-activity' },
     { label: 'My Appointments', href: '/patient/appointments', icon: 'bi-calendar-check' },
     { label: 'Book Consultation', href: '/booking', icon: 'bi-calendar-plus' },
+    { label: 'My Profile', href: '/profile', icon: 'bi-person-gear' },
   ],
   DOCTOR: [
     { label: 'Clinical Workspace', href: '/doctor', icon: 'bi-speedometer2' },
@@ -26,7 +27,9 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'Upcoming Works', href: '/doctor/upcoming', icon: 'bi-calendar-event' },
     { label: 'Work Done by Doctor', href: '/doctor/works-done', icon: 'bi-clipboard2-check' },
     { label: 'Already Completed', href: '/doctor/completed', icon: 'bi-check2-circle' },
+    { label: 'Clinical AI Suite', href: '/doctor/ai', icon: 'bi-stars' },
     { label: 'Schedule Slot Manager', href: '/doctor/schedule', icon: 'bi-sliders' },
+    { label: 'My Profile', href: '/profile', icon: 'bi-person-gear' },
   ],
   ADMIN: [
     { label: 'Executive Center', href: '/admin', icon: 'bi-speedometer2' },
@@ -34,6 +37,7 @@ const ROLE_NAV: Record<UserRole, NavItem[]> = {
     { label: 'Patient Records', href: '/admin/patients', icon: 'bi-people' },
     { label: 'Triage Rules Engine', href: '/admin/rules', icon: 'bi-sliders' },
     { label: 'System Audit Logs', href: '/admin/audit', icon: 'bi-file-earmark-text' },
+    { label: 'My Profile', href: '/profile', icon: 'bi-person-gear' },
   ],
 };
 

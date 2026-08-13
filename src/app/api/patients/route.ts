@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth-server';
 
 // GET /api/patients — admin: list all patients with triage and appointment counts
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = requireAuth(req, ['ADMIN']);
+    if ('response' in auth) return auth.response;
+
     const patients = await db.user.findMany({
       where: { role: 'PATIENT' },
       select: {

@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth-server';
 
-// GET /api/payments — admin: all payment logs
+// GET /api/payments — admin or authenticated patient: payment logs
 export async function GET(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
+
     const { searchParams } = new URL(req.url);
     const patient_id = searchParams.get('patient_id');
+
+    // If fetching all payments, caller must be ADMIN
+    if (!patient_id && auth.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
+    }
+
+    // If fetching specific patient payments, caller must be that patient or ADMIN
+    if (patient_id && auth.user.role !== 'ADMIN' && auth.user.id !== patient_id) {
+      return NextResponse.json({ error: 'Forbidden. Cannot view other patient payments.' }, { status: 403 });
+    }
 
     const payments = await db.paymentLog.findMany({
       where: patient_id ? { patient_id } : {},
@@ -26,6 +40,8 @@ export async function GET(req: NextRequest) {
 // POST /api/payments — log a payment transaction
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json();
     const { appointment_id, patient_id, amount, payment_method, provider, transaction_ref } = body;
 

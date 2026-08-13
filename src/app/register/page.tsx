@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { ThemeToggle } from '@/lib/ui-context';
+import { validatePasswordStrength } from '@/lib/password-validator';
 
 const MIN_PASSWORD = 8;
 
@@ -22,11 +23,11 @@ export default function RegisterPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Errors surface once the user has left the field, not while they type.
-  const passwordTooShort = touched.password && password.length > 0 && password.length < MIN_PASSWORD;
+  const passwordStrength = validatePasswordStrength(password);
+  const passwordInvalid = touched.password && password.length > 0 && !passwordStrength.isValid;
   const passwordsDiffer = touched.confirm && confirmPassword.length > 0 && confirmPassword !== password;
   const canSubmit =
-    fullName.trim() && email.trim() && phone.trim() && password.length >= MIN_PASSWORD && confirmPassword === password;
+    fullName.trim() && email.trim() && phone.trim() && passwordStrength.isValid && confirmPassword === password;
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +36,8 @@ export default function RegisterPage() {
       setErrorMsg('Please complete every field to create your account.');
       return;
     }
-    if (password.length < MIN_PASSWORD) {
-      setErrorMsg(`Please choose a password of at least ${MIN_PASSWORD} characters.`);
+    if (!passwordStrength.isValid) {
+      setErrorMsg(passwordStrength.errors[0] || 'Password does not meet complexity requirements.');
       return;
     }
     if (password !== confirmPassword) {
@@ -171,7 +172,7 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className={`lp-field${passwordTooShort ? ' lp-field-invalid' : ''}`}>
+            <div className={`lp-field${passwordInvalid ? ' lp-field-invalid' : ''}`}>
               <label htmlFor="regPassword">Password</label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -181,10 +182,10 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 8 chars, A-Z, a-z, 0-9, special char"
                   required
-                  aria-invalid={!!passwordTooShort}
-                  aria-describedby={passwordTooShort ? 'regPassword-error' : 'regPassword-help'}
+                  aria-invalid={!!passwordInvalid}
+                  aria-describedby={passwordInvalid ? 'regPassword-error' : 'regPassword-help'}
                   style={{ paddingRight: '3rem' }}
                 />
                 <button
@@ -197,14 +198,14 @@ export default function RegisterPage() {
                   <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true" />
                 </button>
               </div>
-              {passwordTooShort ? (
+              {passwordInvalid ? (
                 <p className="lp-error" id="regPassword-error">
                   <i className="bi bi-exclamation-circle-fill" aria-hidden="true" />
-                  Use at least {MIN_PASSWORD} characters.
+                  {passwordStrength.errors[0]}
                 </p>
               ) : (
                 <p className="lp-help" id="regPassword-help">
-                  Minimum {MIN_PASSWORD} characters.
+                  Requires 8+ chars, uppercase, lowercase, number, and special character.
                 </p>
               )}
             </div>

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { checkSlotAvailable, isSlotConflict, slotKeyFor } from '@/lib/booking-guard';
+import { requireAuth } from '@/lib/auth-server';
 
 // GET /api/appointments?patient_id=&doctor_id=&status=
 export async function GET(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
+
     const { searchParams } = new URL(req.url);
     const patient_id = searchParams.get('patient_id');
     const status = searchParams.get('status');
@@ -66,6 +70,9 @@ export async function GET(req: NextRequest) {
 // POST /api/appointments — create new appointment
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
+
     const body = await req.json();
     const {
       patient_id, doctor_id, triage_id,

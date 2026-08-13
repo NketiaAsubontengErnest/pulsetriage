@@ -63,6 +63,8 @@ model DoctorSchedule {
 
   doctor Doctor @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
 
+  // Every slot lookup starts here.
+  @@index([doctor_id])
   @@map("doctor_schedules")
 }
 
@@ -85,6 +87,9 @@ model TriageAssessment {
   patient      User          @relation(fields: [patient_id], references: [id])
   appointments Appointment[]
 
+  // A patient's assessment history, newest first.
+  @@index([patient_id, created_at])
+  @@index([urgency_level])
   @@map("triage_assessments")
 }
 
@@ -104,11 +109,27 @@ model Appointment {
   reason           String?
   created_at       DateTime @default(now())
 
+  /// Set to "<date>_<start_time>" while the appointment holds a slot, and to
+  /// NULL once it is cancelled. Postgres allows many NULLs in a unique index,
+  /// so this reserves the slot in the database itself while still letting a
+  /// cancelled appointment release it. The transactional re-check in the API
+  /// stays as the friendly first line of defence; this is the backstop that
+  /// makes a double booking impossible rather than merely unlikely.
+  slot_key         String?
+
   patient  User             @relation("PatientAppointments", fields: [patient_id], references: [id])
   doctor   Doctor           @relation("DoctorAppointments", fields: [doctor_id], references: [id])
   triage   TriageAssessment? @relation(fields: [triage_id], references: [id])
   payments PaymentLog[]
 
+  @@unique([doctor_id, slot_key])
+  // Slot generation and the doctor's day view: "every appointment for this
+  // doctor on this date".
+  @@index([doctor_id, appointment_date])
+  // "My appointments", newest first.
+  @@index([patient_id, created_at])
+  // Dashboard counts and the admin status filters.
+  @@index([status])
   @@map("appointments")
 }
 
@@ -127,6 +148,8 @@ model PaymentLog {
   appointment Appointment @relation(fields: [appointment_id], references: [id])
   patient     User        @relation(fields: [patient_id], references: [id])
 
+  @@index([patient_id, created_at])
+  @@index([appointment_id])
   @@map("payment_logs")
 }
 
@@ -142,6 +165,8 @@ model Notification {
 
   user User @relation(fields: [user_id], references: [id])
 
+  // The notification tray reads one user's rows, newest first.
+  @@index([user_id, created_at])
   @@map("notifications")
 }
 
@@ -194,5 +219,8 @@ model AuditLog {
   details    String?
   created_at DateTime @default(now())
 
+  // The audit view is always "most recent first", optionally filtered by entity.
+  @@index([created_at])
+  @@index([entity, entity_id])
   @@map("audit_logs")
 }

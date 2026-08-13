@@ -8,6 +8,8 @@ erDiagram
   DOCTORS ||--o{ APPOINTMENTS : "attends"
   TRIAGE_ASSESSMENTS ||--o{ APPOINTMENTS : "prioritises"
   APPOINTMENTS ||--o{ PAYMENT_LOGS : "settles"
+  APPOINTMENTS ||--o{ ROOM_SIGNALS : "carries WebRTC signalling"
+  APPOINTMENTS ||--o{ ROOM_PRESENCE : "tracks participants"
 
   USERS {
     string id PK "cuid"
@@ -68,6 +70,7 @@ erDiagram
     string status "PENDING_PAYMENT|CONFIRMED|CANCELLED|COMPLETED"
     string payment_status "PENDING|SIMULATED_SUCCESS|FAILED"
     float payment_amount
+    string slot_key UK "date_time; NULL when cancelled"
     string notes
     string reason
     datetime created_at
@@ -93,6 +96,26 @@ erDiagram
     string type "TRIAGE|APPOINTMENT|PAYMENT|SYSTEM"
     boolean is_read
     datetime created_at
+  }
+
+  ROOM_SIGNALS {
+    int seq PK "autoincrement"
+    string appointment_id FK
+    string sender_id
+    string sender_role "DOCTOR|PATIENT"
+    string target_id "nullable"
+    string type "OFFER|ANSWER|ICE|CHAT|ENDED|LEAVE"
+    string payload "JSON"
+    datetime created_at
+  }
+
+  ROOM_PRESENCE {
+    string id PK
+    string appointment_id FK
+    string peer_id UK "unique with appointment_id"
+    string role "DOCTOR|PATIENT"
+    string name
+    datetime last_seen
   }
 
   SPECIALIZATIONS {

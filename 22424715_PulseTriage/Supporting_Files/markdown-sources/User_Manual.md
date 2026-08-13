@@ -1,483 +1,442 @@
 ---
 title: "User Manual"
 subtitle: "PulseTriage — Telehealth Appointment & Urgency Auto-Triage System"
-author: "Ernest Nketia Asubonteng (Index No. 22424715)"
-date: "12 August 2026"
+author: "Ernest Nketia Asubonteng (22424715)"
+date: "CSCD 602 Advanced Software Engineering · University of Ghana"
+lang: en-GB
 ---
 
 # USER MANUAL
 
-## PulseTriage — Telehealth Appointment & Urgency Auto-Triage System
+**PulseTriage — Telehealth Appointment & Urgency Auto-Triage System**
 
-| Field | Value |
-| :--- | :--- |
-| **Application** | PulseTriage v1.0 |
-| **Live URL** | <https://pulsetriage.vercel.app> |
-| **Course** | CSCD 602 — Advanced Software Engineering |
-| **Candidate** | Ernest Nketia Asubonteng (Index No. 22424715) |
-| **Examiner** | Prof. Solomon Mensah |
-| **Date** | 12 August 2026 |
+Application address: <https://pulsetriage.vercel.app>
+
+> ### Before you begin — please read
+>
+> **PulseTriage does not handle medical emergencies.** If you or someone with
+> you has chest pain, difficulty breathing, signs of a stroke, severe bleeding
+> or any other emergency, **call your local emergency number immediately**. Do
+> not wait for an appointment.
+>
+> **This is a demonstration system.** Please do not enter real personal or
+> medical information. It has not been cleared to hold real patient data.
+>
+> **It does not give you a diagnosis.** It estimates how urgently you should be
+> seen and helps you book with the right kind of doctor. Only a clinician can
+> diagnose you.
 
 ---
 
-> # ⚠ IMPORTANT SAFETY NOTICE — READ FIRST
+> ### A note on illustrations
 >
-> **PulseTriage is a decision-support aid. It is not a diagnostic instrument and it does not replace a clinician's judgement.**
+> This manual is written to be followed without pictures: every instruction
+> names the exact control you should look for and what you will see after using
+> it. Screenshots have not been embedded because none were captured before
+> submission, and inventing them would misrepresent the interface.
 >
-> **If you are experiencing a medical emergency, do not use this application. Call emergency services (112 in Ghana) or go to the nearest emergency department immediately.**
->
-> If the system classifies your assessment as **EMERGENCY**, it will deliberately **not** offer you an appointment. This is intended behaviour and is not a fault. It means the correct response to your symptoms is emergency care, not a scheduled consultation.
->
-> The clinical rule content in this version is illustrative and has **not** been validated by a qualified clinical advisor. This version is intended for demonstration and assessment only.
+> Where a screenshot would help most, the text carries a marked placeholder such
+> as **[Screenshot: patient dashboard]** describing precisely what should be
+> captured. To complete the manual, take each named screenshot at a browser
+> width of about 1280 px, save it into `Supporting_Files/images/` using the name
+> given in the placeholder, and replace the placeholder line with a standard
+> Markdown image reference.
 
 ---
 
 # 1. Getting Started
 
-## 1.1 What You Need
+## 1.1 What you need
 
-- A modern web browser — Chrome, Edge, Firefox or Safari (latest two versions).
-- An internet connection.
-- A camera and microphone, **only** if you intend to open a consultation room.
-- No installation of any kind. PulseTriage runs entirely in the browser on desktop, tablet and mobile.
+| Requirement | Detail |
+|---|---|
+| A device | Computer, tablet or phone |
+| A browser | A current version of Chrome, Edge, Firefox or Safari |
+| Internet | Any reasonable connection; the system works on mobile data |
+| Camera and microphone | Only if you will join a video consultation |
 
-## 1.2 Opening the Application
+## 1.2 Opening the application
 
-Go to **<https://pulsetriage.vercel.app>**.
+Type **pulsetriage.vercel.app** into your browser's address bar and press Enter.
+You will arrive at the welcome page, which explains what the system does and
+offers **Create an account** and **Sign in**.
 
-> **📷 FIGURE 1.1 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the PulseTriage landing page as it first appears.
-> **Where to get it:** <https://pulsetriage.vercel.app>
-> **How (Windows):** press `Win` + `Shift` + `S`, drag to select the area, then paste into this document.
-> **Save as:** `docs/images/manual-01-landing.png`
+**[Screenshot: landing page — the full welcome page at 1280 px width, showing the headline and both buttons. Save as `screenshot-01-landing.png`.]**
 
-## 1.3 Demonstration Accounts
+## 1.3 Demonstration accounts
 
-For assessment and demonstration, the following accounts are pre-loaded. **All of them use the password `password123`.**
+For assessment, three accounts already exist. **Every one uses the password
+`password123`.**
 
-| Role | E-mail | What you can do |
-| :--- | :--- | :--- |
-| **Patient** | `patient@ug.edu.gh` | Symptom triage, doctor search, booking, payment, appointment history |
-| **Doctor** | `dr.mensah@ug.edu.gh` (Cardiology) | Urgency-ordered patient queue, consultations, clinical notes |
-| **Doctor** | `dr.appiah@ug.edu.gh` (Pulmonology) | As above |
-| **Doctor** | `dr.owusu@ug.edu.gh` (General Practice) | As above |
-| **Administrator** | `admin@ug.edu.gh` | Metrics, doctor verification, triage rules, audit trail |
+| Role | E-mail | What you will see |
+|---|---|---|
+| Patient | `patient@ug.edu.gh` | The patient portal |
+| Doctor | `dr.mensah@ug.edu.gh` | The clinical workspace |
+| Administrator | `admin@ug.edu.gh` | The operations centre |
 
-## 1.4 Signing In
+The sign-in page also has a one-click button for each of these, so you do not
+need to type them.
 
-1. Click **Sign In** in the top navigation bar (or go to `/login`).
-2. Enter the e-mail address and password.
-3. Click **Sign In**.
+## 1.4 Signing in
 
-You are taken to the dashboard for your role automatically. Your session survives page reloads, so you will not be asked to sign in again until you sign out.
+1. Click **Sign in**.
+2. Enter your e-mail address and password.
+3. Click **Sign in**.
 
-> **📷 FIGURE 1.2 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the sign-in form.
-> **Where to get it:** <https://pulsetriage.vercel.app/login>
-> **Save as:** `docs/images/manual-02-login.png`
+If you prefer, click one of the demonstration buttons instead.
 
-## 1.5 Creating a New Patient Account
+You are taken straight to the portal for your role. If your details are not
+recognised, a message appears above the form explaining what to check — your
+details are never partially accepted.
 
-1. Click **Register** in the top navigation bar (or go to `/register`).
-2. Enter your full name, e-mail address, phone number and a password.
-3. Click **Create Account**.
+**[Screenshot: sign-in page — showing the form, the password visibility toggle and the three demonstration buttons. Save as `screenshot-02-signin.png`.]**
 
-Your account is active immediately and you are signed in.
+## 1.5 Creating a patient account
 
-**Note:** e-mail verification and password reset are **not available in this version**. If you forget the password to an account you created, you will need to register a new account. This is a documented limitation (see the Technical Debt Plan, item TD-05).
+1. Click **Create an account**.
+2. Enter your full name, e-mail address and phone number.
+3. Choose a password. It must be at least 8 characters and include a capital
+   letter, a small letter, a number and a symbol such as `!` or `@`. The form
+   tells you which of these is still missing as you type.
+4. Re-enter the same password to confirm it.
+5. Click **Create account**.
 
-## 1.6 Signing Out
+You are signed in immediately and taken to your dashboard.
 
-Click your name in the top-right corner and choose **Sign Out**. Your session is cleared from the browser.
+## 1.6 Finding your way around
 
-## 1.7 Finding Your Way Around
+| Element | Where | What it does |
+|---|---|---|
+| Sidebar | Left (a menu button on phones) | Moves between the sections of your portal |
+| Bell icon | Top right | Your notifications; a red number means unread |
+| Your name | Top right | Opens a menu with **My Profile** and **Sign out** |
+| Light/dark toggle | Top right | Switches between light and dark appearance |
 
-The left-hand sidebar changes according to your role.
+## 1.7 Signing out
 
-| Patient | Doctor | Administrator |
-| :--- | :--- | :--- |
-| Patient Dashboard | Clinical Workspace | Executive Center |
-| Start Symptom Triage | Works Pending | Doctor Operations |
-| My Appointments | Upcoming Works | Patient Records |
-| Book Consultation | Work Done by Doctor | Triage Rules Engine |
-| | Already Completed | System Audit Logs |
-| | Schedule Slot Manager | |
-
-You can switch between **light** and **dark** display modes using the toggle in the top bar. Light mode is the default.
+Click your name in the top-right corner and choose **Sign out**. On a shared
+computer, always sign out when you finish.
 
 ---
 
 # 2. Patient Guide
 
-## 2.1 Overview of the Patient Journey
+## 2.1 Your journey
 
 ```
-Sign in  →  Symptom triage  →  Urgency result  →  Book a slot  →  Pay  →  Confirmed
-                                     │
-                                     └─ if EMERGENCY → redirect to emergency services
-                                        (booking is deliberately not offered)
+Describe symptoms  →  Receive urgency  →  Choose a doctor and time
+      →  Pay  →  Attend the consultation  →  Receive your notes
 ```
 
-## 2.2 Step 1 — Start a Symptom Triage
+## 2.2 Step 1 — Describe your symptoms
 
-Click **Start Symptom Triage** in the sidebar, or **Start New Triage** on your dashboard. The wizard has four short steps and shows your progress at the top.
+From your dashboard, click **Start Symptom Triage**. You will answer four short
+groups of questions. It takes about three minutes.
 
-> **📷 FIGURE 2.1 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the triage wizard at Step 1, showing the symptom categories and the progress bar.
-> **Where to get it:** <https://pulsetriage.vercel.app/triage> (sign in as `patient@ug.edu.gh` first)
-> **Save as:** `docs/images/manual-03-triage-step1.png`
+**Choose your main symptom.** Pick the option closest to what is troubling you
+most. If several apply, choose the one that worries you most.
 
-### Step 1 of 4 — Your main symptom
+**Say how long it has lasted.** Choose from the options offered — for example
+*Sudden (under 6 hours)* or *Over a week*. Something that began suddenly is
+treated as more urgent than something long-standing.
 
-Choose the option that best describes your main problem:
+**Rate your pain or discomfort from 1 to 10.** Be honest. Understating it may
+mean you are seen later than you should be.
 
-| Option | Typically routed to |
-| :--- | :--- |
-| Chest Pain / Palpitations | Cardiology |
-| Shortness of Breath / Asthma / Cough | Pulmonology |
-| Severe Headache / Dizziness / Numbness | Neurology |
-| High Fever / Chills / Systemic Illness | General Practice / Internal Medicine |
-| Severe Abdominal Pain / Vomiting | Gastroenterology |
-| Skin Rash / Allergic Flare-up | Dermatology |
-| Routine Checkup / Medical Certificate | General Practice |
+| If you would say… | Choose roughly |
+|---|---|
+| I barely notice it | 1–2 |
+| It is annoying but I can carry on | 3–4 |
+| It is distracting and hard to ignore | 5–6 |
+| It is difficult to do anything else | 7–8 |
+| It is the worst pain I have felt | 9–10 |
 
-**Optional — describe it in your own words.** Step 1 also offers a free-text box where you can type a description such as *"I've had a severe throbbing headache and dizziness for 2 days with pain level 8."* The AI assistant will read it and produce a supporting summary. This is **advisory only** — your official urgency classification always comes from the clinical rule engine, never from the AI.
+**Tick any warning signs that apply.** This is the most important question in
+the assessment. Read the list carefully and tick everything that is true. These
+are the findings that mean you may need care immediately rather than at an
+appointment. **If you are unsure whether one applies, tick it.**
 
-### Step 2 of 4 — How long, and how bad
+Then click **Evaluate my symptoms**.
 
-**How long have you had this symptom?** Choose one:
+**[Screenshot: triage step 4 — the warning-signs checklist with two items ticked. Save as `screenshot-03-redflags.png`.]**
 
-- Sudden (< 6 hours)
-- 24–48 hours
-- 3–7 days
-- Over 1 week
+## 2.3 Understanding your result
 
-Symptoms that started suddenly are weighted as **more urgent**, because rapid onset is itself a clinical signal.
+You will see a score out of 100 and one of four urgency levels.
 
-**How severe is the pain or discomfort?** Drag the slider from **1** (very mild) to **10** (worst imaginable). Answer honestly — this is the single largest contributor to your score.
+| Level | What it means | What happens next |
+|---|---|---|
+| **EMERGENCY** | You may need care immediately | You are directed to emergency services. **No appointment is offered.** |
+| **URGENT** | You should be seen very soon | Book the earliest slot, usually the same day |
+| **SEMI-URGENT** | You should be seen soon, but it can wait a little | Book within a day or two |
+| **ROUTINE** | Not urgent | Book whenever suits you |
 
-> **📷 FIGURE 2.2 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** Step 2, showing the duration options and the pain slider.
-> **Save as:** `docs/images/manual-04-triage-step2.png`
+You will also see the type of specialist suggested for you, and a short
+explanation of why you were given this level.
 
-### Step 3 of 4 — Safety check (the most important step)
+> **If your result is EMERGENCY, the system will not let you book an
+> appointment.** This is deliberate and it is not a fault. It means your symptoms
+> should be assessed now, not at a future appointment. Call your local emergency
+> number or go to the nearest emergency department.
 
-You are shown a checklist of **critical warning signs**. Tick every one that applies to you:
+**[Screenshot: an EMERGENCY result — showing the score, the emergency guidance, and the absence of any booking button. Save as `screenshot-04-emergency.png`.]**
 
-- Chest pain or pressure radiating to arm/jaw
-- Severe shortness of breath at rest
-- Sudden weakness or numbness on one side of face/body
-- High fever (> 39.5 °C) with neck stiffness
-- Blue lips, facial discoloration, or hypoxia
-- Uncontrolled or heavy bleeding
+## 2.4 Step 2 — Book your consultation
 
-> **Do not skip this step, and do not leave anything unticked because you are unsure.** These are the indicators that cause the system to stop and send you to emergency care instead of scheduling an appointment. Ticking one is not a commitment — it is a safety check.
+If your result allows booking, click **Book with recommended specialist**.
 
-You may also add any pre-existing conditions (hypertension, diabetes, asthma, and so on) in the notes box.
+1. **Choose a doctor.** You will see the suggested specialty first. Each doctor
+   shows their fee and rating.
+2. **Choose a date.** Use the date picker.
+3. **Choose a time.** Only the times that doctor actually works are shown.
+   A time already taken appears greyed out with a small padlock and cannot be
+   chosen.
 
-### Step 4 of 4 — Evaluate
+If a doctor does not work on the day you picked, the system tells you so and
+invites you to try another date. If you see no times at all, that doctor has not
+published hours for that day.
 
-Click **Evaluate Triage Rules**. The result appears immediately.
+**[Screenshot: the booking step — showing the slot grid with several available times and at least one locked, taken slot. Save as `screenshot-05-booking.png`.]**
 
-## 2.3 Understanding Your Result
+## 2.5 Step 3 — Pay
 
-You are shown four things: an **urgency level**, a **severity score out of 100**, a **recommended specialty**, and a **recommended action**.
+> **No real money is involved.** Payment in this system is simulated for
+> demonstration. Nothing is charged and no card or wallet is contacted.
 
-| Urgency level | What it means | What you should do |
-| :--- | :--- | :--- |
-| 🔴 **EMERGENCY** | Your symptoms may indicate a life-threatening condition | **Call 112 or go to the nearest emergency department now.** No appointment is offered. |
-| 🟠 **URGENT** | Needs prompt medical attention | Book a consultation **within 24 hours** |
-| 🟡 **SEMI-URGENT** | Should be seen soon, but is not an emergency | Book a consultation **within 48 hours** |
-| 🟢 **ROUTINE** | Non-urgent | Book a consultation **within 7 days** |
+1. Choose **Mobile Money** or **Card**.
+2. Enter the account number. For the demonstration, `0241234567` succeeds.
+3. Click **Confirm and pay**.
 
-> **📷 FIGURE 2.3 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** an urgency result card for a non-emergency case, showing the score, the urgency badge and the recommended specialty.
-> **How to produce it:** run a triage with *Severe Headache / Dizziness / Numbness*, duration *Sudden (< 6 hours)*, pain **7**, no red flags ticked.
-> **Save as:** `docs/images/manual-05-urgency-result.png`
+You will see a reference beginning `PAY-SIM-` and your appointment becomes
+**CONFIRMED**.
 
-### If your result is EMERGENCY
+*To see what a declined payment looks like,* enter `00000` instead. The
+appointment stays as **PENDING PAYMENT** and you can try again — nothing is lost.
 
-The screen displays a prominent red banner instructing you to seek emergency care, **and no booking button appears anywhere on the page**. This is deliberate. The system will not allow you to schedule a future appointment for symptoms that require care now.
+## 2.6 Managing your appointments
 
-> **📷 FIGURE 2.4 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the emergency redirect banner, clearly showing that **no booking option is offered**.
-> **How to produce it:** run a triage with *Chest Pain / Palpitations*, duration *Sudden (< 6 hours)*, pain **9**, and tick **"Chest pain or pressure radiating to arm/jaw"**.
-> **Save as:** `docs/images/manual-06-emergency-redirect.png`
-
-## 2.4 Step 2 — Booking a Consultation
-
-If your result is `URGENT`, `SEMI_URGENT` or `ROUTINE`, click **Book Slot with Recommended Specialist**. You may also go to **Book Consultation** in the sidebar at any time.
-
-1. **Choose a doctor.** The list is pre-filtered to your recommended specialty. Each card shows the doctor's name, specialisation, biography, rating, consultation fee in Ghana Cedis, and a **VERIFIED** badge if their licence has been confirmed by an administrator.
-2. **Choose a consultation type** — telehealth (online) or in-person.
-3. **Choose a date.**
-4. **Choose a time slot.** Slots are 30 minutes.
-5. Review the summary and click **Continue to Payment**.
-
-> **📷 FIGURE 2.5 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the doctor directory with the specialisation filter, and the booking modal with the date and slot picker.
-> **Where to get it:** <https://pulsetriage.vercel.app/doctors>
-> **Save as:** `docs/images/manual-07-booking.png`
-
-## 2.5 Step 3 — Payment
-
-> **⚠ This version uses a simulated payment gate. No real money is taken, and no real card or Mobile Money account is charged. Do not enter genuine payment details.**
-
-1. Choose a payment method: **Mobile Money** (MTN / Telecel), **Card** (Visa / Mastercard) or **Health Insurance** (NHIS).
-2. Enter an account or card number. **Any number of five characters or more will be accepted.** For example, `0241234567`.
-3. Click **Pay & Confirm Slot**.
-
-After a short processing pause you will see a confirmation with a transaction reference of the form `PAY-SIM-123456`. Your appointment status changes to **CONFIRMED** and both you and your doctor receive a notification.
-
-**To see the declined-payment path** (useful for demonstration): enter `00000`, or any number shorter than five characters. The payment is declined with a clear message, your appointment remains in **PENDING_PAYMENT**, and you can retry immediately with a valid number.
-
-> **📷 FIGURE 2.6 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the payment step showing the three payment methods and the fee.
-> **Save as:** `docs/images/manual-08-payment.png`
-
-## 2.6 Managing Your Appointments
-
-Click **My Appointments** in the sidebar to see all your bookings with their doctor, date, time, status and payment status.
-
-**Statuses you may see:**
+Open **My Appointments** in the sidebar. Each appointment shows the doctor, date,
+time and status.
 
 | Status | Meaning |
-| :--- | :--- |
-| `PENDING_PAYMENT` | Slot reserved; payment not yet completed |
-| `CONFIRMED` | Paid and confirmed |
-| `COMPLETED` | The consultation has taken place |
-| `CANCELLED` | The appointment was cancelled |
+|---|---|
+| **PENDING PAYMENT** | Booked but not yet paid; the slot is held for you |
+| **CONFIRMED** | Paid and scheduled |
+| **COMPLETED** | The consultation has happened and your notes are ready |
+| **CANCELLED** | No longer going ahead |
 
-> **Limitation:** in this version you **cannot** reschedule or cancel an appointment yourself. You would need to contact the clinic directly. This is a documented limitation (Technical Debt Plan, item TD-07).
+**To reschedule**, click **Reschedule** and pick a new date and time. You are not
+charged again. The system checks the new time is genuinely free.
 
-## 2.7 Notifications
+**To cancel**, click **Cancel**. The slot is released for someone else.
 
-The bell icon in the top bar shows your unread notification count. Click it to read your notifications and mark them as read. You will receive notifications for triage results, booking confirmations, payment outcomes and appointment reminders.
+## 2.7 Step 4 — Joining your consultation
 
-> **Limitation:** notifications appear **inside the application only**. Nothing is sent to your e-mail address or by SMS in this version, including messages labelled as reminders. Please sign in to check for updates. This is a documented limitation (Technical Debt Plan, item TD-12).
+When it is time, open **My Appointments** and click **Join consultation** on the
+confirmed appointment.
 
-## 2.8 Joining a Consultation
+Your browser will ask for permission to use your camera and microphone. Choose
+**Allow**. Without this the doctor cannot see or hear you.
 
-When it is time for a telehealth consultation, open the appointment and click **Join Consultation Room**. Your browser will ask permission to use your camera and microphone; click **Allow**.
+Inside the room you will see the doctor's video filling most of the screen, with
+your own picture in a small tile. Along the bottom are:
 
-> **⚠ Important limitation:** in this version the consultation room shows **your own camera preview only**. It does **not** yet connect you to your doctor — you will not be able to see or hear each other through this screen. Your actual consultation will take place by telephone or another agreed channel. This is a documented limitation (Technical Debt Plan, item TD-10).
+| Control | What it does |
+|---|---|
+| Microphone | Mutes or unmutes you |
+| Camera | Turns your video off or on |
+| Speaker | Mutes or unmutes the doctor's sound on your device |
+| Screen (desktop only) | Shares your screen |
+| **Leave consultation** | Ends the call for you |
 
-## 2.9 Reviewing Your Triage History
+**On a phone**, tap the blue chat button to open the chat; a number on it shows
+unread messages.
 
-Your dashboard lists every triage assessment you have submitted, with its date, symptom, score and urgency. Assessments are never edited or deleted — a re-assessment always creates a new record, so your clinical history stays intact.
+**[Screenshot: the consultation room on a phone — showing the doctor's video, your own tile, the control bar and the floating chat button. Save as `screenshot-06-consultation.png`.]**
+
+### If something is not working
+
+| Problem | What to do |
+|---|---|
+| You cannot hear the doctor | Tap the speaker button. If a yellow bar says *Tap to hear*, tap it — your phone is blocking sound until you ask for it |
+| The doctor cannot hear you | Check the microphone button is not red. Open **Info** to see whether your microphone was detected |
+| No picture from the doctor | Wait a few seconds while the connection is made. The screen tells you what stage it has reached |
+| Your camera will not start | Close other applications using the camera and reload. The consultation continues by voice if the camera stays unavailable |
+
+## 2.8 After the consultation
+
+When the doctor signs off, you receive a notification and the appointment becomes
+**COMPLETED**. Open it to read your notes, which include what was discussed, the
+doctor's assessment, any prescription and when to follow up.
+
+Your previous assessments stay under **Triage History**.
 
 ---
 
 # 3. Doctor Guide
 
-## 3.1 Signing In
+## 3.1 Your workspace
 
-Sign in with a doctor account (for example `dr.mensah@ug.edu.gh` / `password123`). You arrive at the **Clinical Workspace**.
+Sign in with your clinician account. You arrive at the clinical workspace.
 
-## 3.2 The Clinical Workspace
+| Section | Purpose |
+|---|---|
+| Clinical Workspace | Today's queue and shortcuts |
+| Works Pending | Cases triaged but not yet consulted |
+| Upcoming Works | Your scheduled consultations |
+| Work Done / Already Completed | Your signed records |
+| Clinical AI Suite | AI documentation and decision support |
+| Schedule Slot Manager | The hours you consult |
 
-Your workspace has six views:
+## 3.2 Working the queue
 
-| View | Purpose |
-| :--- | :--- |
-| **Clinical Workspace** | Overview and today's queue |
-| **Works Pending** | Appointments awaiting your action |
-| **Upcoming Works** | Confirmed future appointments |
-| **Work Done by Doctor** | Consultations you have conducted |
-| **Already Completed** | Closed consultations |
-| **Schedule Slot Manager** | Your availability windows |
+**Your queue is ordered by clinical urgency, not by booking time.** The most
+unwell patient is at the top regardless of when they booked. Each entry shows the
+urgency tier and severity score.
 
-## 3.3 Working the Patient Queue
+**[Screenshot: the clinical workspace — the queue with an EMERGENCY case at the top and its urgency badge visible. Save as `screenshot-07-queue.png`.]**
 
-**Your queue is ordered by clinical urgency, not by when the appointment was booked.** The patient with the highest triage severity score appears first, regardless of whether they booked last.
+## 3.3 Publishing your consulting hours
 
-Each entry shows the patient's name, their urgency badge and severity score, their primary symptom, the appointment time, and the consultation type.
+This controls what patients can book, so it matters.
 
-> **📷 FIGURE 3.1 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the doctor's queue with the highest-severity patient at the top.
-> **Where to get it:** <https://pulsetriage.vercel.app/doctor> (sign in as `dr.mensah@ug.edu.gh` / `password123`)
-> **Save as:** `docs/images/manual-09-doctor-queue.png`
+1. Open **Schedule Slot Manager**.
+2. For each weekday you consult, tick the day and set a start time, an end time
+   and a slot length.
+3. Click **Save availability**.
 
-## 3.4 Reviewing a Patient Before the Consultation
+The panel on the right shows exactly the slots a patient will see for any date
+you choose, including which are already booked. If a day shows no slots, no
+patient can book you on that weekday.
 
-Click a patient in the queue to open their triage assessment: the primary symptom, symptom duration, reported pain score, any red flags ticked, the computed severity score, the assigned urgency level, and the system's recommended action.
+## 3.4 Conducting a consultation
 
-This means you have the patient's structured presentation **before** the consultation begins, rather than spending the first minutes of the appointment establishing it.
+Click **Join consultation** on a confirmed appointment. Alongside the video you
+have four tabs:
 
-## 3.5 Conducting a Consultation
+| Tab | Contents |
+|---|---|
+| **Chat** | Live messages with the patient |
+| **Patient** | Their intake record: contact details, reason for visit, triage tier, severity, pain score, warning signs, and notes from previous consultations |
+| **Notes** | A notepad that saves as you type and carries into your write-up |
+| **AI** | Clinical decision support scoped to this patient |
 
-1. Open the appointment from **Upcoming Works**.
-2. Click **Join Consultation Room** to open the room and grant camera and microphone permission.
-3. Conduct the consultation. *(See the limitation in §2.8 — the room does not yet carry two-way media.)*
-4. Record your findings in the **Clinical Notes** field.
-5. Optionally click **Generate SOAP Note** to have the AI assistant draft a structured Subjective / Objective / Assessment / Plan note from your notes, including suggested ICD-10 codes. **Always review and correct the draft before saving — it is a drafting aid, not a clinical authority.**
-6. Click **Save & Mark Consultation Complete**. The appointment status becomes `COMPLETED`.
+On a phone these are behind the clipboard button.
 
-> **📷 FIGURE 3.2 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the clinical notes panel with the AI SOAP note tool.
-> **Save as:** `docs/images/manual-10-clinical-notes.png`
+The **Notes** tab is the one to use during the call. It saves automatically, it
+survives a reload, and whatever you write appears in the wrap-up form when you
+end the call — so nothing is lost if the connection drops.
 
-## 3.6 Managing Your Availability
+## 3.5 Using the AI assistant
 
-Open **Schedule Slot Manager** to view and set your recurring weekly availability — the day of the week, start and end times, and slot duration (default 30 minutes). Patients can only book inside these windows.
+The AI panel can suggest differential diagnoses, list red flags to exclude, draft
+a treatment plan, or answer a typed question. The patient's triage record, the
+in-call chat and your working notes are supplied as context automatically.
 
-## 3.7 AI Clinical Tools
+Every answer is labelled with the model that produced it and how strongly the
+models agreed. A low agreement score means they disagreed — read that suggestion
+more carefully.
 
-Four assistants are available from your workspace:
+> **The AI does not make clinical decisions.** Nothing it produces reaches the
+> patient's record until you have reviewed, edited and submitted it. If the
+> models cannot be reached, the panel says so plainly. It will never substitute
+> invented content that looks like a generated answer.
 
-| Tool | What it does |
-| :--- | :--- |
-| **SOAP Note Generator** | Turns consultation notes into a structured SOAP note with ICD-10 suggestions |
-| **Lab Report Analyser** | Summarises a laboratory report, flags out-of-range values and produces a patient-friendly explanation |
-| **No-Show Risk Predictor** | Estimates the likelihood that a patient will miss an appointment |
-| **Doctor Match** | Suggests the most appropriate clinician for a given triage result |
+Use **Insert into notes** to move a useful answer into your notepad, where you
+can edit it.
 
-**All four are advisory.** They never alter a patient's urgency classification, and their output should be reviewed before being acted upon. If the AI service is unavailable, each tool falls back to a safe default rather than failing.
+## 3.6 Completing the consultation
+
+Click **End call and write notes**. The wrap-up form opens, pre-filled with your
+in-call notes and the patient's intake record.
+
+Complete the sections — history, examination findings, assessment and diagnosis,
+plan and prescriptions, follow-up. **Draft SOAP note with AI** will populate them
+for you to review and correct.
+
+Check every line, then click **Submit notes and mark consultation completed**.
+The patient is notified and can read the record. Nothing is written to their file
+until you press this button.
 
 ---
 
 # 4. Administrator Guide
 
-## 4.1 Signing In
+## 4.1 Operations centre
 
-Sign in with `admin@ug.edu.gh` / `password123`. You arrive at the **Executive Center**.
+Sign in with the administrator account for platform metrics: registered patients,
+verified clinicians, assessments run and consultations completed.
 
-## 4.2 Executive Center — System Metrics
+## 4.2 Managing clinicians
 
-The dashboard shows live figures for total triage assessments, the proportion classified as high urgency, registered and verified doctors, total appointments, and total simulated revenue.
+Open **Doctor Operations** to list clinicians and their verification status.
 
-> **📷 FIGURE 4.1 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the administrator dashboard with the metrics tiles.
-> **Where to get it:** <https://pulsetriage.vercel.app/admin>
-> **Save as:** `docs/images/manual-11-admin-dashboard.png`
+**A clinician who is not verified is not offered to patients.** Verification is
+the control that decides who may practise on the platform. Review the licence
+number before verifying.
 
-## 4.3 Doctor Operations
+You can also add a clinician and maintain the list of specialties.
 
-Open **Doctor Operations** to see every registered doctor with their specialisation, licence number, fee, rating and verification status.
+## 4.3 Reviewing the triage rules
 
-**To verify a doctor:** click the verification toggle next to their name. The status flips between **VERIFIED** and **PENDING**, the change is saved immediately, and an entry is written to the audit log. Only verified doctors display the verified badge to patients.
+**Triage Rules Engine** shows the active rules with their conditions, weights and
+priorities, and lets you evaluate a hypothetical case to see what the engine
+would return. This affects nothing real — it is a simulator.
 
-You can also add a new doctor, edit an existing doctor's details, and manage the specialisation catalogue.
+> **Please note:** changes made on this screen are not saved and do not affect
+> what patients experience. This is a known limitation, recorded as TD-04 in the
+> Technical Debt Plan.
 
-## 4.4 Patient Records
+## 4.4 The audit trail
 
-Open **Patient Records** to see registered patients and their triage history.
-
-> **Please note:** administrator access to patient clinical data is for audit and support purposes only. In a production deployment every such access would itself be recorded in the audit trail; that read-access logging is **not yet implemented** in this version (Technical Debt Plan, item TD-08).
-
-## 4.5 Triage Rules Engine
-
-Open **Triage Rules Engine** to inspect and experiment with the clinical rules.
-
-**The rule list** shows each rule's identifier, category, symptom, severity threshold, required red flags, urgency output, recommended specialty and priority weight. You can activate or deactivate any rule with its toggle.
-
-**Adding a rule:** fill in the symptom, category, severity threshold, urgency output and recommended action, then click **Add Rule**.
-
-**The rule simulator:** enter a sample symptom, severity, duration and red flags, then run the simulation to see exactly what classification the current rule set would produce — *before* relying on it.
-
-> **⚠ Important limitation:** rule changes made on this page apply **only to your current browser session** and are lost when you reload the page. They do **not** yet affect the rules used by patients, which come from the version compiled into the application. This is a documented limitation (Technical Debt Plan, item TD-04) and is scheduled for the v1.2 release.
-
-> **📷 FIGURE 4.2 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the rule list with active toggles, and the simulator with a result.
-> **Where to get it:** <https://pulsetriage.vercel.app/admin/rules>
-> **Save as:** `docs/images/manual-12-admin-rules.png`
-
-## 4.6 System Audit Logs
-
-Open **System Audit Logs** to review every significant system event: the actor who performed it, the action, the entity affected, its identifier, any detail, and the timestamp.
-
-Logged events include authentication, triage submission, appointment booking, payment processing, doctor verification and configuration changes. **The audit log is append-only** — there is no way to edit or delete an entry from anywhere in the application, which is what makes it a trustworthy record.
-
-> **📷 FIGURE 4.3 — INSERT SCREENSHOT HERE**
->
-> **What to capture:** the audit log table showing actor, action, entity and timestamp columns.
-> **Where to get it:** <https://pulsetriage.vercel.app/admin/audit>
-> **Save as:** `docs/images/manual-13-audit-log.png`
+**System Audit Logs** shows an append-only record of registrations, assessments,
+bookings, payments, profile changes and administrative actions, each with who did
+it, what they did and when. Records cannot be edited or deleted.
 
 ---
 
-# 5. Troubleshooting
+# 5. Managing Your Account
 
-| Problem | Likely cause | What to do |
-| :--- | :--- | :--- |
-| "Invalid email or password" | Wrong credentials, or the account does not exist | Check the e-mail spelling. All demonstration accounts use `password123`. Passwords are case-sensitive. |
-| "Authentication Required" appears | Your session was cleared | Sign in again. If it recurs, check that your browser is not blocking site storage. |
-| I forgot my password | Password reset is not available in this version | Register a new account (limitation TD-05). |
-| No booking button after triage | Your result was **EMERGENCY** | This is intended. Seek emergency care — do not attempt to book. |
-| Payment was declined | Account number shorter than 5 characters, or `00000` | Enter any number of 5 characters or more, e.g. `0241234567`. |
-| I cannot see my doctor in the consultation room | Two-way media is not implemented in this version | Expected behaviour (limitation TD-10). Your consultation takes place by telephone or another agreed channel. |
-| No e-mail or SMS reminder arrived | External delivery is not implemented | Expected behaviour (limitation TD-12). Sign in and check your notifications. |
-| My rule changes disappeared after reload | Rule edits are session-scoped in this version | Expected behaviour (limitation TD-04). |
-| The AI assistant returned a generic answer | The inference service was unreachable | Expected behaviour — the system falls back to a safe default rather than failing. Your urgency classification is unaffected. |
-| The first page load is slow | Serverless cold start | Subsequent loads are considerably faster. |
-| I cannot cancel my appointment | Not implemented in this version | Contact the clinic directly (limitation TD-07). |
+Open **My Profile** from the sidebar or the menu under your name. Available to
+every role.
 
----
+**To change your photograph**, click **Choose photo** and select an image. It is
+resized in your browser before it is saved. Click **Save changes** to apply it.
+**Remove** clears it.
 
-# 6. Frequently Asked Questions
+**To change your details**, edit your name or phone number and click **Save
+changes**. Your e-mail cannot be changed here because it is your sign-in name.
+Doctors can also edit their specialty and biography.
 
-**Is PulseTriage a substitute for seeing a doctor?**
-No. It is a decision-support aid that helps you reach the right clinician sooner. It does not diagnose, and it does not replace clinical judgement.
-
-**How is my urgency score calculated?**
-Your reported pain level is multiplied by 8. Symptoms that began within the last two days add 15 points; symptoms lasting more than two weeks add 5. Each additional warning sign adds 10. The total is capped at 100, then banded: 80 or above is `EMERGENCY`, 60–79 is `URGENT`, 35–59 is `SEMI_URGENT`, below 35 is `ROUTINE`. **If you tick a critical warning sign that matches an emergency rule, all of this is bypassed and you are classified `EMERGENCY` immediately.**
-
-**Does the AI decide my urgency?**
-No. Your urgency is always determined by the deterministic clinical rule engine. The AI provides supporting narrative only and can never change your classification. This is a deliberate safety decision: a clinical decision must be reproducible and auditable, and an AI model's output is neither.
-
-**Is my payment real?**
-No. All payments in this version are simulated. No money is taken and no real account is charged. Please do not enter genuine payment details.
-
-**Who can see my medical information?**
-You, the doctor you have an appointment with, and administrators for audit purposes. **However**, this version has a known security limitation: the application's programming interface does not yet verify who is asking before returning data. Because of this, **do not enter any real personal or medical information into this demonstration system.** This is documented as items TD-01 and TD-03 in the Technical Debt Plan and is scheduled for repayment in the first release after this one.
-
-**Can I use this on my phone?**
-Yes. The interface is responsive and works on mobile, tablet and desktop browsers. There is no app to install.
-
-**What happens to my triage history?**
-Assessments are kept permanently and are never edited. A new assessment always creates a new record, so your clinical history remains complete and reviewable.
+**To change your password**, enter your current password, then your new one
+twice, and click **Change password**. Your current password is required — this
+is what stops someone using an unattended screen to take over your account.
 
 ---
 
-# 7. Known Limitations at a Glance
+# 6. Troubleshooting
 
-For completeness, the limitations referred to throughout this manual:
-
-| Area | Limitation | Reference |
-| :--- | :--- | :--- |
-| Security | The programming interface does not verify the caller's identity. **Do not enter real personal or medical data.** | TD-01, TD-03 |
-| Payments | Fully simulated; no money moves | TD-11 |
-| Notifications | In-application only; no e-mail or SMS is sent | TD-12 |
-| Consultation room | Local camera preview only; no two-way audio or video | TD-10 |
-| Triage rules | Administrator edits are session-scoped and do not affect patients | TD-04 |
-| Appointments | Cannot be rescheduled or cancelled by the patient | TD-07 |
-| Accounts | No e-mail verification and no password reset | TD-05 |
-| Accessibility | Not yet verified against WCAG 2.1 AA | TD-09 |
-| Clinical content | The rule thresholds are illustrative and are **not** clinically validated | Limitation L1 |
-
-Every one of these is documented, costed and scheduled in `Technical_Debt_Plan.docx`.
+| Problem | What to do |
+|---|---|
+| Cannot sign in | Check the e-mail address for typing errors. Demonstration accounts all use `password123`. There is no password reset in this version |
+| Page will not load | Reload. If it persists, the hosting platform may be briefly unavailable |
+| No time slots when booking | That doctor does not consult on that day. Try another date or another doctor |
+| Slot rejected when confirming | Someone booked it in the meantime. Choose another; the system prevents two people holding one slot |
+| Camera or microphone not working | Check the browser's address bar for a blocked-permission icon, close other applications using the device, and reload |
+| AI panel shows a red banner | Inference is unreachable. Every other function is unaffected — this is by design |
+| No notifications arriving | Notifications appear inside the application only. No e-mail or SMS is sent in this version |
 
 ---
 
-# 8. Support
+# 7. Getting Help
 
-| Purpose | Contact |
-| :--- | :--- |
-| Technical questions about this submission | Ernest Nketia Asubonteng (Index No. 22424715) |
-| Source code and issue tracking | <https://github.com/NketiaAsubontengErnest/pulsetriage> |
-| **Medical emergency** | **Call 112 (Ghana) or attend your nearest emergency department. Do not use this application.** |
+Use the **Contact** page to send a message. It reaches the platform
+administrators and is recorded. Give your name, an e-mail address they can reply
+to, and a clear description.
+
+**Do not use the contact form for anything medical or urgent.** It is for
+questions about using the system. For medical concerns, book a consultation. For
+emergencies, call your local emergency number.
 
 ---
 

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth-server';
 
 // GET /api/triage?patient_id=
 export async function GET(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
+
     const { searchParams } = new URL(req.url);
     const patient_id = searchParams.get('patient_id');
 
@@ -27,6 +31,8 @@ export async function GET(req: NextRequest) {
 // POST /api/triage — save a new triage assessment
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireAuth(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json();
     const {
       patient_id,

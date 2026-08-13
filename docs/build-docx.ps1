@@ -53,6 +53,7 @@ try {
             '--to=docx',
             '--output', $target,
             '--resource-path=.;./images',
+            '--dpi=170',
             '--standalone'
         )
         if ($doc.Toc) { $args += @('--toc', '--toc-depth=3') }

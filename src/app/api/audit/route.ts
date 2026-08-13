@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireAuth } from '@/lib/auth-server';
 
 // GET /api/audit?limit=50
 export async function GET(req: NextRequest) {
   try {
+    const auth = requireAuth(req, ['ADMIN']);
+    if ('response' in auth) return auth.response;
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '50');
 

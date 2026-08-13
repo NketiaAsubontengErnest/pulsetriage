@@ -21,20 +21,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session from localStorage on page load/refresh
+  // Restore session from server-side HTTP-Only cookie or localStorage fallback
   useEffect(() => {
-    const savedUser = localStorage.getItem('pulsetriage_session');
-    if (savedUser) {
+    async function restoreSession() {
       try {
-        setUser(JSON.parse(savedUser));
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            const userProfile: UserProfile = {
+              id: data.user.id,
+              email: data.user.email,
+              full_name: data.user.full_name,
+              role: data.user.role as UserRole,
+              phone: data.user.phone || undefined,
+              avatar_url: data.user.avatar_url || undefined,
+              created_at: data.user.created_at,
+            };
+            setUser(userProfile);
+            localStorage.setItem('pulsetriage_session', JSON.stringify(userProfile));
+            setIsLoading(false);
+            return;
+          }
+        }
       } catch {
-        localStorage.removeItem('pulsetriage_session');
+        // Fallback to local session if network check fails
       }
+
+      const savedUser = localStorage.getItem('pulsetriage_session');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          localStorage.removeItem('pulsetriage_session');
+        }
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
+
+    restoreSession();
   }, []);
 
-  // Login — calls real API, validates against SQLite DB
+  // Login — calls real API, validates against database
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
@@ -78,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, email, phone, password: password || 'password123' }),
+        body: JSON.stringify({ full_name: fullName, email, phone, password }),
       });
 
       const data = await res.json();
@@ -107,6 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('pulsetriage_session');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
   };
 
   const applyProfileUpdate = (profile: UserProfile) => {

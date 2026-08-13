@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { requireAuth } from '@/lib/auth-server';
 
 // GET /api/doctors — list all doctors with their user profile
 export async function GET() {
@@ -35,6 +36,9 @@ export async function GET() {
 // POST /api/doctors — admin adds a new doctor
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireAuth(req, ['ADMIN']);
+    if ('response' in auth) return auth.response;
+
     const body = await req.json();
     const {
       full_name, email, phone, password,

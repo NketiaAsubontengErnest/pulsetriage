@@ -89,7 +89,7 @@ export function AIAssistantWidget() {
           <i className="bi bi-stars text-warning fs-5" />
           <span className="fw-semibold">AI Health Assist</span>
           <span className="badge text-bg-warning text-dark font-mono" style={{ fontSize: '10px' }}>
-            Kimi
+            AI Panel
           </span>
         </button>
       )}
@@ -154,7 +154,7 @@ export function AIAssistantWidget() {
             {loading && (
               <div className="d-flex align-items-center gap-2 text-muted small py-1">
                 <i className="bi bi-arrow-repeat spin text-primary" />
-                <span className="fst-italic">Kimi AI is thinking...</span>
+                <span className="fst-italic">PulseBot is consulting the AI panel...</span>
               </div>
             )}
             <div ref={chatEndRef} />

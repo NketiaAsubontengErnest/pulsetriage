@@ -861,3 +861,312 @@ html[data-theme="dark"] .avatar-initials {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--admin-primary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Telehealth video room
+   Mobile-first: the peer's video owns the screen, the controls sit in a fixed
+   bar underneath it, and chat lives behind a floating button so it never eats
+   vertical space on a phone.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.thr-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  /* dvh tracks the collapsing mobile address bar; vh is the fallback. */
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overscroll-behavior: contain;
+}
+
+/* Flex children only shrink below their content when told to. Without this the
+   video area refuses to give room back and the layout overflows the screen. */
+.min-h-0,
+.thr-stage,
+.thr-video-wrap {
+  min-height: 0;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.thr-topbar {
+  padding: 0.4rem 0.6rem;
+  flex-shrink: 0;
+  padding-top: max(0.4rem, env(safe-area-inset-top));
+}
+
+.thr-room-title {
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.thr-close-btn {
+  --bs-btn-padding-y: 0.15rem;
+  --bs-btn-padding-x: 0.45rem;
+  line-height: 1;
+}
+
+.thr-video-wrap {
+  background: #000;
+}
+
+.thr-remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* contain, not cover: a phone in portrait would otherwise crop most of the
+     doctor out of a landscape webcam frame. */
+  object-fit: contain;
+  background: #000;
+}
+
+.thr-waiting {
+  pointer-events: none;
+}
+
+.thr-avatar {
+  width: 84px;
+  height: 84px;
+}
+
+.thr-name-tag {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  max-width: 45%;
+  font-size: 0.7rem;
+  z-index: 3;
+}
+
+.thr-unmute {
+  position: absolute;
+  top: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  max-width: calc(100% - 1.2rem);
+}
+
+.thr-pip {
+  right: 0.6rem;
+  bottom: 0.6rem;
+  width: 27vw;
+  max-width: 130px;
+  min-width: 88px;
+  aspect-ratio: 3 / 4;
+  background: #111;
+  z-index: 4;
+}
+
+.thr-pip-tag {
+  position: absolute;
+  left: 0.2rem;
+  bottom: 0.2rem;
+  font-size: 8px;
+  padding: 0.15rem 0.3rem;
+}
+
+.thr-media-error {
+  position: absolute;
+  top: 2.8rem;
+  left: 0.6rem;
+  right: 0.6rem;
+  z-index: 5;
+  font-size: 0.7rem;
+}
+
+.thr-controls {
+  padding: 0.6rem;
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.thr-ctl {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.thr-hangup {
+  padding: 0.6rem 1.1rem;
+  margin-left: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* ── Floating chat button ─────────────────────────────────────────────────── */
+.thr-chat-fab {
+  right: 0.6rem;
+  /* clear of the self-view tile */
+  /* Clears the self-view tile, which is capped at 130px wide. */
+  bottom: calc(0.6rem + min(27vw, 130px) * 4 / 3 + 0.6rem);
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 7;
+}
+
+.thr-chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.65rem;
+  min-width: 20px;
+  padding: 0.2rem 0.35rem;
+}
+
+/* ── Mobile chat sheet ────────────────────────────────────────────────────── */
+.thr-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  animation: thr-fade-in 0.15s ease-out;
+}
+
+.thr-sheet {
+  width: 100%;
+  height: 78dvh;
+  max-height: 78dvh;
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
+  animation: thr-slide-up 0.2s ease-out;
+}
+
+.thr-sheet-grip {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+@keyframes thr-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes thr-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thr-sheet,
+  .thr-sheet-backdrop {
+    animation: none;
+  }
+}
+
+/* ── Landscape phones: the controls must not eat the whole screen ─────────── */
+@media (max-height: 480px) and (orientation: landscape) {
+  .thr-ctl {
+    width: 38px;
+    height: 38px;
+    font-size: 0.9rem;
+  }
+
+  .thr-controls {
+    padding: 0.35rem;
+  }
+
+  .thr-hangup {
+    padding: 0.35rem 0.8rem;
+  }
+
+  .thr-pip {
+    width: 15vw;
+    max-width: 110px;
+  }
+
+  .thr-chat-fab {
+    bottom: calc(0.5rem + min(15vw, 110px) * 4 / 3 + 0.5rem);
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ── Desktop: restore the roomier layout and the persistent side panel ─────── */
+@media (min-width: 992px) {
+  .thr-topbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .thr-room-title {
+    font-size: 0.875rem;
+  }
+
+  .thr-stage {
+    padding: 1rem;
+  }
+
+  .thr-video-wrap {
+    border: 1px solid var(--bs-border-color-translucent, #495057);
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .thr-remote-video {
+    border-radius: 0.75rem;
+  }
+
+  .thr-avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .thr-name-tag {
+    max-width: calc(100% - 1.2rem);
+  }
+
+  .thr-pip {
+    width: 180px;
+    max-width: 180px;
+    aspect-ratio: 18 / 13;
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .thr-controls {
+    background: transparent;
+    border-top: 0;
+    padding: 0.9rem 0 0;
+  }
+
+  .thr-ctl {
+    width: 52px;
+    height: 52px;
+    font-size: 1.2rem;
+  }
+
+  .thr-panel {
+    width: 380px;
+    flex: 0 0 380px;
+  }
+}

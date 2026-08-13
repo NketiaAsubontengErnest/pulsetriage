@@ -119,11 +119,11 @@ export const TriageWizard: React.FC<TriageWizardProps> = ({ onTriageComplete }) 
           <div className="p-3 mb-4 rounded-3 border border-primary-subtle bg-primary-subtle bg-opacity-10">
             <div className="d-flex align-items-center gap-2 mb-2">
               <i className="bi bi-stars text-warning fs-5" />
-              <strong className="text-primary">Kimi AI Natural Language Triage Assistant</strong>
+              <strong className="text-primary">AI Natural Language Triage Assistant</strong>
               <span className="badge text-bg-warning text-dark uppercase font-mono" style={{ fontSize: '10px' }}>Ollama Cloud</span>
             </div>
             <p className="small text-muted mb-2">
-              Or describe how you are feeling in your own words. Kimi AI will evaluate your symptom urgency, detect red flags, and recommend the right specialty.
+              Or describe how you are feeling in your own words. A panel of AI models will evaluate your symptom urgency, detect red flags, and recommend the right specialty — the answer they agree on is the one you see.
             </p>
             <div className="input-group">
               <input

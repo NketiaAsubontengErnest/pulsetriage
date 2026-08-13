@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { matchDoctorScheduleAI } from '@/lib/ai/ai-services';
 import { db } from '@/lib/db';
 
+// Ensemble calls fan out to several cloud models, so the default serverless
+// budget is too tight. Vercel caps this at the plan maximum.
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // POST /api/ai/doctor-match
 export async function POST(req: NextRequest) {
   try {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { AIProvenanceBadge } from '@/components/ai/ai-provenance-badge';
 
 export function AIDoctorTools() {
   const [activeTab, setActiveTab] = useState<'soap' | 'lab' | 'noshow'>('soap');
@@ -91,7 +92,10 @@ export function AIDoctorTools() {
               Ollama Cloud
             </span>
           </h2>
-          <p className="text-muted mb-0">Powered by Kimi-K3 Cloud • Automated Clinical Documentation &amp; Analysis</p>
+          <p className="text-muted mb-0">
+            Multi-model panel on Ollama Cloud • every request is answered by several models and the best-agreed answer
+            is shown
+          </p>
         </div>
 
         {/* Navigation Tabs (Bootstrap Nav Pills) */}
@@ -154,12 +158,15 @@ export function AIDoctorTools() {
 
           {soapResult && (
             <div className="card mt-3 border-primary-subtle bg-light">
-              <div className="card-header bg-white d-flex align-items-center justify-content-between">
+              <div className="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <span className="fw-bold text-primary d-flex align-items-center gap-2">
                   <i className="bi bi-check2-circle text-success" aria-hidden="true" />
                   Generated Clinical SOAP Note
                 </span>
-                <span className="badge text-bg-info">ICD-10 Available</span>
+                <span className="d-flex align-items-center gap-2 flex-wrap">
+                  <AIProvenanceBadge provenance={soapResult.ai_provenance} />
+                  <span className="badge text-bg-info">ICD-10 Available</span>
+                </span>
               </div>
               <div className="card-body">
                 <div className="row g-3">
@@ -242,18 +249,21 @@ export function AIDoctorTools() {
 
           {labResult && (
             <div className="card mt-3 border-primary-subtle bg-light">
-              <div className="card-header bg-white d-flex align-items-center justify-content-between">
+              <div className="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <span className="fw-bold text-dark">Lab Analysis Summary</span>
-                <span
-                  className={`badge ${
-                    labResult.risk_level === 'CRITICAL'
-                      ? 'text-bg-danger'
-                      : labResult.risk_level === 'ACTION_REQUIRED'
-                      ? 'text-bg-warning text-dark'
-                      : 'text-bg-success'
-                  }`}
-                >
-                  Risk: {labResult.risk_level}
+                <span className="d-flex align-items-center gap-2 flex-wrap">
+                  <AIProvenanceBadge provenance={labResult.ai_provenance} />
+                  <span
+                    className={`badge ${
+                      labResult.risk_level === 'CRITICAL'
+                        ? 'text-bg-danger'
+                        : labResult.risk_level === 'ACTION_REQUIRED'
+                        ? 'text-bg-warning text-dark'
+                        : 'text-bg-success'
+                    }`}
+                  >
+                    Risk: {labResult.risk_level}
+                  </span>
                 </span>
               </div>
               <div className="card-body">
@@ -352,18 +362,21 @@ export function AIDoctorTools() {
 
           {noShowResult && (
             <div className="card mt-3 border-primary-subtle bg-light">
-              <div className="card-header bg-white d-flex align-items-center justify-content-between">
+              <div className="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <span className="fw-bold text-dark">No-Show Risk Assessment</span>
-                <span
-                  className={`badge ${
-                    noShowResult.risk_tier === 'HIGH'
-                      ? 'text-bg-danger'
-                      : noShowResult.risk_tier === 'MEDIUM'
-                      ? 'text-bg-warning text-dark'
-                      : 'text-bg-success'
-                  }`}
-                >
-                  {noShowResult.no_show_probability}% Probability ({noShowResult.risk_tier} Risk)
+                <span className="d-flex align-items-center gap-2 flex-wrap">
+                  <AIProvenanceBadge provenance={noShowResult.ai_provenance} />
+                  <span
+                    className={`badge ${
+                      noShowResult.risk_tier === 'HIGH'
+                        ? 'text-bg-danger'
+                        : noShowResult.risk_tier === 'MEDIUM'
+                        ? 'text-bg-warning text-dark'
+                        : 'text-bg-success'
+                    }`}
+                  >
+                    {noShowResult.no_show_probability}% Probability ({noShowResult.risk_tier} Risk)
+                  </span>
                 </span>
               </div>
               <div className="card-body">

@@ -184,14 +184,28 @@ export function useTelehealthCall({ appointmentId, isDoctor, displayName, active
 
       // Tracks are announced as soon as the remote description is applied —
       // that is not yet a connection, so the status stays with ICE below.
+      //
+      // Audio and video arrive as separate `track` events. Mutating one stream
+      // object in place leaves React holding the same reference, so the video
+      // element never re-attaches and the late-arriving video track renders as
+      // a black rectangle. Publishing a fresh MediaStream on every track keeps
+      // the identity changing and the attach effect honest.
       pc.ontrack = (event) => {
-        const [firstStream] = event.streams;
-        if (firstStream) {
-          setRemoteStream(firstStream);
-        } else {
-          inbound.addTrack(event.track);
-          setRemoteStream(inbound);
-        }
+        const arriving = event.streams[0] ? event.streams[0].getTracks() : [event.track];
+        const known = new Set(inbound.getTracks());
+        arriving.forEach((track) => {
+          if (!known.has(track)) inbound.addTrack(track);
+        });
+        setRemoteStream(new MediaStream(inbound.getTracks()));
+
+        // A track that ends (peer turned the camera off, renegotiation) should
+        // drop out of the rendered stream rather than freeze on its last frame.
+        event.track.onended = () => {
+          try {
+            inbound.removeTrack(event.track);
+          } catch {}
+          setRemoteStream(inbound.getTracks().length ? new MediaStream(inbound.getTracks()) : null);
+        };
       };
 
       pc.onicecandidate = (event) => {

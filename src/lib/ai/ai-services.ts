@@ -1,4 +1,31 @@
-import { queryOllama, queryOllamaJson, ChatMessage } from './ollama-client';
+import {
+  queryOllamaEnsemble,
+  queryOllamaJsonEnsemble,
+  ChatMessage,
+  EnsembleResult,
+} from './ollama-client';
+
+/**
+ * Provenance attached to every AI-assisted result so the doctor can see which
+ * models were consulted, which one won the comparison, and how strongly the
+ * panel agreed. `model: 'rule-engine'` means every model was unreachable and the
+ * deterministic fallback was served instead (FR-9.3).
+ */
+export interface AIProvenance {
+  model: string;
+  models_consulted: string[];
+  agreement: number;
+  method: 'consensus' | 'judge' | 'single' | 'fallback';
+}
+
+function provenanceOf<T>(result: EnsembleResult<T>): AIProvenance {
+  return {
+    model: result.model,
+    models_consulted: result.models_consulted,
+    agreement: result.agreement,
+    method: result.method,
+  };
+}
 
 // ==========================================
 // FEATURE 1: AI Symptom Checker & Triage
@@ -11,13 +38,14 @@ export interface AITriageResult {
   red_flags_detected: string[];
   clinical_reasoning: string;
   action_recommendation: string;
+  ai_provenance?: AIProvenance;
 }
 
 export async function analyzeSymptomTriageAI(
   symptomDescription: string,
   additionalInfo?: { age?: number; duration?: string; painScore?: number }
 ): Promise<AITriageResult> {
-  const systemPrompt = `You are PulseTriage AI, an expert emergency clinical triage system powered by Kimi Cloud.
+  const systemPrompt = `You are PulseTriage AI, an expert emergency clinical triage system.
 Analyze the user's natural language symptom description and output ONLY a JSON object matching this schema:
 {
   "urgency_level": "EMERGENCY" | "URGENT" | "SEMI_URGENT" | "ROUTINE",
@@ -47,7 +75,9 @@ ${additionalInfo?.painScore ? `Reported Pain Score (1-10): ${additionalInfo.pain
     action_recommendation: 'Please schedule a consultation with a General Practitioner.',
   };
 
-  return queryOllamaJson<AITriageResult>(
+  // Triage drives escalation, so it is worth polling the whole panel and taking
+  // the answer the models agree on rather than trusting a single one.
+  const result = await queryOllamaJsonEnsemble<AITriageResult>(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
@@ -55,6 +85,8 @@ ${additionalInfo?.painScore ? `Reported Pain Score (1-10): ${additionalInfo.pain
     fallback,
     { temperature: 0.1 }
   );
+
+  return { ...result.value, ai_provenance: provenanceOf(result) };
 }
 
 // ==========================================
@@ -67,6 +99,7 @@ export interface SOAPNoteResult {
   plan: string;
   icd10_suggestions: string[];
   follow_up_recommendation: string;
+  ai_provenance?: AIProvenance;
 }
 
 export async function generateSoapNotesAI(
@@ -131,13 +164,17 @@ Return ONLY a valid JSON object matching this schema:
     follow_up_recommendation: 'Follow up in 5-7 days or immediately if danger signs develop.',
   };
 
-  return queryOllamaJson<SOAPNoteResult>(
+  // The SOAP note is what the doctor signs off, so the full panel is consulted
+  // and the most complete, best-agreed note wins.
+  const result = await queryOllamaJsonEnsemble<SOAPNoteResult>(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `Patient Consultation Transcript & Vitals:\n${consultationTranscript}` },
     ],
     fallback
   );
+
+  return { ...result.value, ai_provenance: provenanceOf(result) };
 }
 
 // ==========================================
@@ -154,6 +191,7 @@ export interface LabAnalysisResult {
   }>;
   doctor_notes: string;
   patient_summary: string;
+  ai_provenance?: AIProvenance;
 }
 
 export async function analyzeMedicalReportAI(reportText: string): Promise<LabAnalysisResult> {
@@ -184,13 +222,15 @@ Return ONLY JSON:
     patient_summary: 'Your lab report has been processed and attached to your patient portal file for your doctor.',
   };
 
-  return queryOllamaJson<LabAnalysisResult>(
+  const result = await queryOllamaJsonEnsemble<LabAnalysisResult>(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: reportText },
     ],
     fallback
   );
+
+  return { ...result.value, ai_provenance: provenanceOf(result) };
 }
 
 // ==========================================
@@ -207,7 +247,7 @@ export async function matchDoctorScheduleAI(
   patientSymptoms: string,
   urgencyLevel: string,
   availableDoctors: Array<{ id: string; name: string; specialty: string; rating?: number; nextAvailable?: string }>
-): Promise<{ matches: DoctorRecommendation[]; summary: string }> {
+): Promise<{ matches: DoctorRecommendation[]; summary: string; ai_provenance?: AIProvenance }> {
   const systemPrompt = `You are PulseTriage Matchmaker AI. Recommend the top matching doctors for a patient based on their symptoms, urgency, and list of available doctors.
 Return ONLY JSON:
 {
@@ -232,7 +272,7 @@ Return ONLY JSON:
     })),
   };
 
-  return queryOllamaJson<{ matches: DoctorRecommendation[]; summary: string }>(
+  const result = await queryOllamaJsonEnsemble<{ matches: DoctorRecommendation[]; summary: string }>(
     [
       { role: 'system', content: systemPrompt },
       {
@@ -240,8 +280,11 @@ Return ONLY JSON:
         content: `Symptoms: "${patientSymptoms}"\nUrgency: ${urgencyLevel}\nDoctors Available: ${JSON.stringify(availableDoctors)}`,
       },
     ],
-    fallback
+    fallback,
+    { size: 2 }
   );
+
+  return { ...result.value, ai_provenance: provenanceOf(result) };
 }
 
 // ==========================================
@@ -250,14 +293,19 @@ Return ONLY JSON:
 export async function healthChatAssistantAI(messages: ChatMessage[]): Promise<string> {
   const systemPrompt: ChatMessage = {
     role: 'system',
-    content: `You are PulseBot, a helpful, empathetic 24/7 Telehealth AI Assistant powered by Kimi Cloud for PulseTriage.
+    content: `You are PulseBot, a helpful, empathetic 24/7 Telehealth AI Assistant for PulseTriage.
 Provide informative, supportive medical education and administrative assistance.
 ALWAYS include a clear disclaimer if the user mentions acute red flag symptoms (chest pain, stroke signs, difficulty breathing) that they must call emergency services (112 / 911) immediately.
 Keep responses clear, concise, and structured with bullet points.`,
   };
 
   try {
-    const aiResponse = await queryOllama([systemPrompt, ...messages], { temperature: 0.4 });
+    // Two models answer in parallel; the more substantive, better-corroborated
+    // reply is the one the patient sees. Parallelism keeps chat latency flat.
+    const { value: aiResponse } = await queryOllamaEnsemble([systemPrompt, ...messages], {
+      temperature: 0.4,
+      size: 2,
+    });
     if (aiResponse && aiResponse.trim().length > 10) {
       return aiResponse;
     }
@@ -329,6 +377,7 @@ export interface NoShowPredictionResult {
   risk_tier: 'LOW' | 'MEDIUM' | 'HIGH';
   risk_factors: string[];
   recommended_interventions: string[];
+  ai_provenance?: AIProvenance;
 }
 
 export async function predictNoShowRiskAI(appointmentDetails: {
@@ -365,11 +414,14 @@ Return ONLY JSON:
     ],
   };
 
-  return queryOllamaJson<NoShowPredictionResult>(
+  const result = await queryOllamaJsonEnsemble<NoShowPredictionResult>(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: JSON.stringify(appointmentDetails) },
     ],
-    fallback
+    fallback,
+    { size: 2 }
   );
+
+  return { ...result.value, ai_provenance: provenanceOf(result) };
 }
